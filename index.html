@@ -379,6 +379,13 @@
             <div style="flex:1"><input id="fragRange" type="range" min="0" max="90" step="1" value="0"></div>
             <div class="value" id="fragVal">0%</div>
           </div>
+          <div class="row">
+            <div class="label">Impact Surface</div>
+            <div style="flex:1">
+              <label><input type="radio" name="impactType" value="land"> Land</label>
+              <label><input type="radio" name="impactType" value="sea"> Sea</label>
+            </div>
+          </div>
           <div class="buttons" style="margin-top:6px">
             <button id="simulateBtn">Simulate Impact</button>
             <button id="resetBtn" class="secondary">Reset</button>
@@ -404,6 +411,8 @@
         <div class="output"><strong>Seismic magnitude:</strong> <span id="seismicVal">—</span></div>
         <div class="output"><strong>Affected population:</strong> <span id="popAffected">—</span></div>
         <div class="output"><strong>Estimated fatalities:</strong> <span id="fatalitiesVal">—</span></div>
+        <div class="output" id="tsunamiHeightBox" style="display:none"><strong>Tsunami height (initial):</strong> <span id="tsunamiHeight">—</span> m</div>
+        <div class="output" id="tsunamiSpeedBox" style="display:none"><strong>Tsunami speed:</strong> <span id="tsunamiSpeed">—</span> m/s</div>
         <div class="output" id="warningBox" style="display:none;background:linear-gradient(90deg,#3b0832, #6b1b43);color:#fff">⚠️ <span id="warningText"></span></div>
         <div class="muted-small" id="popNote">Population estimated using country-average density. Click the globe to simulate and fetch local country data.</div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
@@ -670,6 +679,10 @@
       const popAffectedEl = $('popAffected'), fatalitiesEl = $('fatalitiesVal');
       const warnBox = $('warningBox'), warnText = $('warningText');
       const popNote = $('popNote');
+      const tsunamiHeightBox = $('tsunamiHeightBox');
+      const tsunamiSpeedBox = $('tsunamiSpeedBox');
+      const tsunamiHeightEl = $('tsunamiHeight');
+      const tsunamiSpeedEl = $('tsunamiSpeed');
 
       function updateDisplays() {
         massV.textContent = fmt(massR.value);
@@ -851,6 +864,8 @@
         seismicEl.textContent = '—';
         popAffectedEl.textContent = '—';
         fatalitiesEl.textContent = '—';
+        tsunamiHeightBox.style.display = 'none';
+        tsunamiSpeedBox.style.display = 'none';
         popNote.textContent = 'Population estimated using country-average density. Click the globe to simulate and fetch local country data.';
         viewer.scene.requestRender();
       }
@@ -1060,6 +1075,14 @@
 
       function simulate(animate = false) {
         try {
+          const impactType = document.querySelector('input[name="impactType"]:checked')?.value;
+          if (!impactType) {
+            clearImpact();
+            warnBox.style.display = 'block';
+            warnText.textContent = 'Please select if the impact is on land or sea.';
+            return;
+          }
+
           const mass = Number(massR.value);
           const speed = Number(speedR.value);
           const angle = Number(angleR.value);
@@ -1092,6 +1115,49 @@
             warnBox.style.display = 'block';
           } else {
             warnBox.style.display = 'none';
+          }
+
+          if (impactType === 'sea' && !res.disintegrates) {
+            const ke = res.ke;
+            const tsunami_height = Math.pow(ke / 1e15, 1/3);
+            const ocean_depth = 4000;
+            const g = 9.81;
+            const tsunami_speed = Math.sqrt(g * ocean_depth);
+            tsunamiHeightEl.textContent = fmtFixed(tsunami_height, 1);
+            tsunamiSpeedEl.textContent = fmtFixed(tsunami_speed, 1);
+            tsunamiHeightBox.style.display = 'block';
+            tsunamiSpeedBox.style.display = 'block';
+
+            const tsunamiEllipse = viewer.entities.add({
+              position: Cesium.Cartesian3.fromDegrees(lng, lat),
+              ellipse: {
+                semiMajorAxis: 0,
+                semiMinorAxis: 0,
+                material: Cesium.Color.BLUE.withAlpha(0.3),
+                outline: false
+              }
+            });
+            impactEntities.push(tsunamiEllipse);
+
+            const startTime = Cesium.JulianDate.now();
+            const maxRadius = 5000000; // 5000 km in meters
+            const animationDuration = 5; // seconds
+            function animateTsunami() {
+              const currentTime = Cesium.JulianDate.now();
+              const elapsed = Cesium.JulianDate.secondsDifference(currentTime, startTime);
+              const progress = Math.min(elapsed / animationDuration, 1);
+              const currentRadius = progress * maxRadius;
+              tsunamiEllipse.ellipse.semiMajorAxis = currentRadius;
+              tsunamiEllipse.ellipse.semiMinorAxis = currentRadius;
+              viewer.scene.requestRender();
+              if (progress < 1) {
+                requestAnimationFrame(animateTsunami);
+              }
+            }
+            requestAnimationFrame(animateTsunami);
+          } else {
+            tsunamiHeightBox.style.display = 'none';
+            tsunamiSpeedBox.style.display = 'none';
           }
 
           if (animate) {
