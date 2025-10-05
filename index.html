@@ -444,23 +444,20 @@
         }
 
         const viewer = new Cesium.Viewer('cesiumContainer', {
-          imageryProvider: new Cesium.OpenStreetMapImageryProvider({
-            url: 'https://tile.openstreetmap.org/'
-          }),
-          baseLayerPicker: false,
-          geocoder: false,
-          homeButton: false,
-          sceneModePicker: false,
-          navigationHelpButton: false,
-          animation: false,
-          timeline: false,
-          fullscreenButton: false,
-          vrButton: false,
-          infoBox: false,
-          selectionIndicator: false,
-          sceneMode: Cesium.SceneMode.SCENE3D,
-          toolbar: document.getElementById('toolbar')
-        });
+  baseLayerPicker: false,
+  geocoder: false,
+  homeButton: false,
+  sceneModePicker: false,
+  navigationHelpButton: false,
+  animation: false,
+  timeline: false,
+  fullscreenButton: false,
+  vrButton: false,
+  infoBox: false,
+  selectionIndicator: false,
+  sceneMode: Cesium.SceneMode.SCENE3D,
+});
+
 
         // Explicitly set canvas size to match container
         const container = viewer.container;
