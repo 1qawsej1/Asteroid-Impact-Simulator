@@ -560,70 +560,6 @@
 
         viewer.scene.globe.enableLighting = true;
 
-        // Load city labels from GeoJSON
-        async function addCityLabels() {
-          try {
-            const geojson = {
-              type: 'FeatureCollection',
-              features: [
-                {
-                  type: 'Feature',
-                  geometry: { type: 'Point', coordinates: [-74.0060, 40.7128] },
-                  properties: { name: 'New York', type: 'city' }
-                },
-                {
-                  type: 'Feature',
-                  geometry: { type: 'Point', coordinates: [0.1278, 51.5074] },
-                  properties: { name: 'London', type: 'city' }
-                },
-                {
-                  type: 'Feature',
-                  geometry: { type: 'Point', coordinates: [139.6917, 35.6895] },
-                  properties: { name: 'Tokyo', type: 'city' }
-                },
-                {
-                  type: 'Feature',
-                  geometry: { type: 'Point', coordinates: [37.6173, 55.7558] },
-                  properties: { name: 'Moscow', type: 'city' }
-                },
-                {
-                  type: 'Feature',
-                  geometry: { type: 'Point', coordinates: [116.4074, 39.9042] },
-                  properties: { name: 'Beijing', type: 'city' }
-                }
-              ]
-            };
-            const dataSource = await Cesium.GeoJsonDataSource.load(geojson, {
-              clampToGround: true,
-              label: {
-                show: true,
-                font: '14px Roboto, sans-serif',
-                fillColor: Cesium.Color.WHITE,
-                outlineColor: Cesium.Color.BLACK,
-                outlineWidth: 2,
-                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-                pixelOffset: new Cesium.Cartesian2(0, -10),
-                showBackground: true,
-                backgroundColor: Cesium.Color.fromAlpha(Cesium.Color.BLACK, 0.5),
-                backgroundPadding: new Cesium.Cartesian2(5, 5),
-                scaleByDistance: new Cesium.NearFarScalar(1e3, 1.0, 1e6, 0.0) // Hide labels when zoomed out
-              },
-              point: {
-                pixelSize: 0 // Disable point rendering, only show labels
-              }
-            });
-            viewer.dataSources.add(dataSource);
-            console.log('City labels loaded successfully');
-          } catch (e) {
-            console.error('Failed to load GeoJSON labels:', e);
-            const warnBox = document.getElementById('warningBox');
-            const warnText = document.getElementById('warningText');
-            warnBox.style.display = 'block';
-            warnText.textContent = 'Failed to load city labels from GeoJSON.';
-          }
-        }
-        await addCityLabels();
-
         // Load 3D tileset
         if (ionToken) {
           try {
@@ -892,7 +828,7 @@
           density,
           perZone: {
             severe: { area_km2: areas.A_severe, pop: pop_severe, fatal: fatal_severe },
-            heavy: { area_km2: arrays.A_heavy, pop: pop_heavy, fatal: fatal_heavy },
+            heavy: { area_km2: areas.A_heavy, pop: pop_heavy, fatal: fatal_heavy },
             moderate: { area_km2: areas.A_moderate, pop: pop_moderate, fatal: fatal_moderate },
             mild: { area_km2: areas.A_mild, pop: pop_mild, fatal: fatal_mild }
           },
