@@ -52,7 +52,7 @@
       transition: transform 0.3s ease-in-out;
     }
     .globe-container.shifted {
-      transform: translateX(-210px); /* Half of panel width to keep globe centered */
+      transform: translateX(-210px);
     }
     #cesiumContainer {
       position: relative;
@@ -79,7 +79,7 @@
     .panel {
       position: absolute;
       top: 0;
-      right: -420px; /* Hidden by default */
+      right: -420px;
       width: 420px;
       height: 100%;
       background: var(--card);
@@ -141,7 +141,7 @@
       text-align: right;
       flex-shrink: 0;
     }
-    input[type=range], input[type=text] {
+    input[type=range], input[type=text], select {
       width: 100%;
       max-width: 200px;
       padding: 6px;
@@ -243,7 +243,7 @@
       .value {
         min-width: 60px;
       }
-      input[type=range], input[type=text] {
+      input[type=range], input[type=text], select {
         max-width: 100%;
       }
       .buttons {
@@ -309,8 +309,7 @@
     #toolbar {
       position: absolute;
       top: 10px;
-      right: 60px; /* Adjusted to avoid overlap with toggle button */
-      z-index: 500;
+      right: 60px;
     }
   </style>
 </head>
@@ -363,15 +362,15 @@
               <option value="gravity">Gravity Tractor</option>
             </select>
           </div>
-          <div class="row" id="deflectRangeRow" style="display:none;">
-            <div class="label">Deflection %</div>
-            <div style="flex:1"><input id="deflectRange" type="range" min="0" max="50" step="1" value="0"></div>
-            <div class="value" id="deflectVal">0</div>
+          <div class="row" id="deflectRateRow" style="display:none;">
+            <div class="label">Deflection Rate</div>
+            <div style="flex:1"><input id="deflectRateRange" type="range" min="0" max="50" step="1" value="10"></div>
+            <div class="value" id="deflectRateVal">10%</div>
           </div>
-          <div class="row" id="fragRangeRow" style="display:none;">
-            <div class="label">Fragmentation %</div>
-            <div style="flex:1"><input id="fragRange" type="range" min="0" max="50" step="1" value="0"></div>
-            <div class="value" id="fragVal">0</div>
+          <div class="row" id="fragRateRow" style="display:none;">
+            <div class="label">Fragmentation Rate</div>
+            <div style="flex:1"><input id="fragRateRange" type="range" min="0" max="50" step="1" value="5"></div>
+            <div class="value" id="fragRateVal">5%</div>
           </div>
           <div class="buttons" style="margin-top:6px">
             <button id="simulateBtn">Simulate Impact</button>
@@ -612,8 +611,8 @@
       const latR = $('latRange'), latV = $('latVal');
       const lngR = $('lngRange'), lngV = $('lngVal');
       const deflectMethod = $('deflectMethod');
-      const deflectR = $('deflectRange'), deflectV = $('deflectVal');
-      const fragR = $('fragRange'), fragV = $('fragVal');
+      const deflectRateR = $('deflectRateRange'), deflectRateV = $('deflectRateVal');
+      const fragRateR = $('fragRateRange'), fragRateV = $('fragRateVal');
       const astDiaEl = $('astDia'), keValEl = $('keVal'), keSciEl = $('keSci');
       const airburstEl = $('airburstVal'), craterEl = $('craterVal'), radiiEl = $('radiiVal');
       const thermalEl = $('thermalVal'), seismicEl = $('seismicVal');
@@ -621,6 +620,8 @@
       const popAffectedEl = $('popAffected'), fatalitiesEl = $('fatalitiesVal');
       const warnBox = $('warningBox'), warnText = $('warningText');
       const popNote = $('popNote');
+      const deflectRateRow = $('deflectRateRow');
+      const fragRateRow = $('fragRateRow');
 
       function updateDisplays() {
         massV.textContent = fmt(Number(massR.value) || 1e9);
@@ -628,41 +629,39 @@
         densityV.textContent = fmt(Number(densityR.value) || 3000);
         latV.textContent = Number(latR.value || 0).toFixed(4) + '°';
         lngV.textContent = Number(lngR.value || 0).toFixed(4) + '°';
-        deflectV.textContent = fmt(Number(deflectR.value) || 0);
-        fragV.textContent = fmt(Number(fragR.value) || 0);
+        deflectRateV.textContent = Number(deflectRateR.value || 10) + '%';
+        fragRateV.textContent = Number(fragRateR.value || 5) + '%';
       }
-      [massR, speedR, densityR, latR, lngR, deflectR, fragR].forEach(el => el.addEventListener('input', updateDisplays));
-      updateDisplays();
-
-      // --- Deflection Method Handling ---
-      const deflectRangeRow = $('deflectRangeRow');
-      const fragRangeRow = $('fragRangeRow');
 
       function updateDeflectionControls() {
         const method = deflectMethod.value;
         if (method === 'none') {
-          deflectRangeRow.style.display = 'none';
-          fragRangeRow.style.display = 'none';
-          deflectR.value = 0;
-          fragR.value = 0;
+          deflectRateRow.style.display = 'none';
+          fragRateRow.style.display = 'none';
+          deflectRateR.value = 0;
+          fragRateR.value = 0;
         } else {
-          deflectRangeRow.style.display = 'flex';
-          fragRangeRow.style.display = 'flex';
+          deflectRateRow.style.display = 'flex';
+          fragRateRow.style.display = 'flex';
+          // Set default values based on method
           if (method === 'kinetic') {
-            deflectR.value = deflectR.value || 10;
-            fragR.value = fragR.value || 5;
+            deflectRateR.value = deflectRateR.value || 10;
+            fragRateR.value = fragRateR.value || 5;
           } else if (method === 'nuclear') {
-            deflectR.value = deflectR.value || 20;
-            fragR.value = fragR.value || 30;
+            deflectRateR.value = deflectRateR.value || 20;
+            fragRateR.value = fragRateR.value || 30;
           } else if (method === 'gravity') {
-            deflectR.value = deflectR.value || 5;
-            fragR.value = fragR.value || 0;
+            deflectRateR.value = deflectRateR.value || 5;
+            fragRateR.value = fragRateR.value || 0;
           }
         }
         updateDisplays();
         debouncedSimulate(false);
       }
+
+      [massR, speedR, densityR, latR, lngR, deflectRateR, fragRateR].forEach(el => el.addEventListener('input', updateDisplays));
       deflectMethod.addEventListener('change', updateDeflectionControls);
+      updateDisplays();
       updateDeflectionControls();
 
       // --- Physics ---
@@ -678,7 +677,7 @@
       }
 
       function estimateCraterDiameterKm(keJ) {
-        const angleDeg = 45; // Fixed angle
+        const angleDeg = 45;
         const angleFactor = Math.sin(angleDeg * Math.PI / 180);
         const effectiveKE = keJ * angleFactor;
         const C = 0.2;
@@ -687,7 +686,7 @@
       }
 
       function estimateAirburstAltitude(diameter_m, speedMs, density) {
-        const angleDeg = 45; // Fixed angle
+        const angleDeg = 45;
         const baseAltitude = 50;
         const sizeFactor = Math.min(25 / diameter_m, 2);
         const speedFactor = Math.min(12000 / speedMs, 1.5);
@@ -710,7 +709,7 @@
       }
 
       function checkAtmosphericDisintegration(diameter_m, speedMs, density) {
-        const angleDeg = 45; // Fixed angle
+        const angleDeg = 45;
         return (
           diameter_m < 25 &&
           (angleDeg > 60 || speedMs < 12000 || density < 2000)
@@ -822,7 +821,7 @@
           density,
           perZone: {
             severe: { area_km2: areas.A_severe, pop: pop_severe, fatal: fatal_severe },
-            heavy: { area_km2: areas.A_heavy, pop: pop_heavy, fatal: fatal_heavy },
+            heavy: { area_km2: A_heavy, pop: pop_heavy, fatal: fatal_heavy },
             moderate: { area_km2: areas.A_moderate, pop: pop_moderate, fatal: fatal_moderate },
             mild: { area_km2: areas.A_mild, pop: pop_mild, fatal: fatal_mild }
           },
@@ -1115,8 +1114,8 @@
           let density = Number(densityR.value);
           let lat = Number(latR.value);
           let lng = Number(lngR.value);
-          let deflectPct = Number(deflectR.value);
-          let fragPct = Number(fragR.value);
+          let deflectPct = Number(deflectRateR.value);
+          let fragPct = Number(fragRateR.value);
 
           // Input validation and defaults
           mass = isFinite(mass) ? mass : 1e9;
@@ -1126,6 +1125,12 @@
           lng = isFinite(lng) ? Math.max(-180, Math.min(180, lng)) : 0;
           deflectPct = isFinite(deflectPct) ? Math.max(0, Math.min(50, deflectPct)) : 0;
           fragPct = isFinite(fragPct) ? Math.max(0, Math.min(50, fragPct)) : 0;
+
+          // Apply deflection and fragmentation only if a method is selected
+          if (deflectMethod.value === 'none') {
+            deflectPct = 0;
+            fragPct = 0;
+          }
 
           console.log('Simulation inputs:', { mass, speed, density, lat, lng, deflectPct, fragPct });
 
@@ -1139,8 +1144,8 @@
           radiiEl.textContent = res.disintegrates ? '0 / 0 / 0 / 0' : `${fmtFixed(res.severe_km, 2)} / ${fmtFixed(res.heavy_km, 2)} / ${fmtFixed(res.moderate_km, 2)} / ${fmtFixed(res.mild_km, 2)}`;
           thermalEl.textContent = res.disintegrates ? '0' : fmtFixed(res.thermal_km, 2);
           seismicEl.textContent = res.disintegrates ? '0' : fmtFixed(res.seismic_mag, 1);
-          deflectedEl.textContent = fmtFixed(deflectPct, 0);
-          fragmentedEl.textContent = fmtFixed(fragPct, 0);
+          deflectedEl.textContent = deflectPct;
+          fragmentedEl.textContent = fragPct;
 
           const megatons = res.ke / 4.184e15;
           if (res.disintegrates) {
@@ -1214,7 +1219,7 @@
       $('simulateBtn').addEventListener('click', () => simulate(false));
       $('resetBtn').addEventListener('click', () => clearImpact());
       $('animateBtn').addEventListener('click', () => simulate(true));
-      [massR, speedR, densityR, latR, lngR, deflectR, fragR, deflectMethod].forEach(el => el.addEventListener('input', () => debouncedSimulate(false)));
+      [massR, speedR, densityR, latR, lngR, deflectMethod, deflectRateR, fragRateR].forEach(el => el.addEventListener('input', () => debouncedSimulate(false)));
       simulate(false);
 
       document.addEventListener('keydown', (e) => {
