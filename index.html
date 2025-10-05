@@ -696,7 +696,34 @@
         );
       }
 
-      function computeImpact(massKg, speedMs, density, deflectPct, fragPct) {
+      function computeDeflectionParameters(method) {
+        let deflectPct, fragPct, missProbability;
+        switch (method) {
+          case 'kinetic':
+            deflectPct = 15; // Increased deflection due to momentum transfer
+            fragPct = 10; // Moderate fragmentation
+            missProbability = 0.4; // 40% chance of missing populated areas
+            break;
+          case 'nuclear':
+            deflectPct = 25; // Higher deflection but significant fragmentation
+            fragPct = 40; // Increased fragmentation due to explosive energy
+            missProbability = 0.6; // 60% chance of missing populated areas
+            break;
+          case 'gravity':
+            deflectPct = 8; // Lower deflection, minimal fragmentation
+            fragPct = 2; // Very low fragmentation
+            missProbability = 0.3; // 30% chance of missing populated areas
+            break;
+          default:
+            deflectPct = 0;
+            fragPct = 0;
+            missProbability = 0;
+        }
+        return { deflectPct, fragPct, missProbability };
+      }
+
+      function computeImpact(massKg, speedMs, density, method) {
+        const { deflectPct, fragPct, missProbability } = computeDeflectionParameters(method);
         const effectiveSpeed = speedMs * (1 - deflectPct / 100);
         const effectiveMass = massKg * (1 - fragPct / 100);
         const diameter_m = computeAsteroidDiameter(effectiveMass, density);
@@ -707,21 +734,23 @@
           const airburst_km = estimateAirburstAltitude(diameter_m, effectiveSpeed, density);
           return {
             diameter_m, ke, airburst_km, crater_km: 0, severe_km: 0, heavy_km: 0,
-            moderate_km: 0, mild_km: 0, thermal_km: 0, seismic_mag: 0, disintegrates: true
+            moderate_km: 0, mild_km: 0, thermal_km: 0, seismic_mag: 0, disintegrates: true,
+            deflectPct, fragPct, missProbability
           };
         }
 
         const crater_km = estimateCraterDiameterKm(ke);
-        const severe_km = Math.max(0.5, crater_km * 0.6);
-        const heavy_km = Math.max(severe_km * 1.8, crater_km * 2.0);
-        const moderate_km = Math.max(heavy_km * 1.9, crater_km * 5.0);
-        const mild_km = Math.max(moderate_km * 2.2, crater_km * 12.0);
+        const severe_km = Math.max(0.5, crater_km * 0.6 * (1 - deflectPct / 100));
+        const heavy_km = Math.max(severe_km * 1.8, crater_km * 2.0 * (1 - deflectPct / 100));
+        const moderate_km = Math.max(heavy_km * 1.9, crater_km * 5.0 * (1 - deflectPct / 100));
+        const mild_km = Math.max(moderate_km * 2.2, crater_km * 12.0 * (1 - deflectPct / 100));
         const thermal_km = estimateThermalRadiusKm(ke);
         const seismic_mag = estimateSeismicMagnitude(ke);
 
         return {
           diameter_m, ke, airburst_km: 0, crater_km, severe_km, heavy_km,
-          moderate_km, mild_km, thermal_km, seismic_mag, disintegrates: false
+          moderate_km, mild_km, thermal_km, seismic_mag, disintegrates: false,
+          deflectPct, fragPct, missProbability
         };
       }
 
@@ -786,15 +815,16 @@
         }
         const density = densityData && densityData.density ? densityData.density : fallbackDensity;
         const areas = ringAreas(result.severe_km, result.heavy_km, result.moderate_km, result.mild_km);
-        const pop_severe = areas.A_severe * density;
-        const pop_heavy = areas.A_heavy * density;
-        const pop_moderate = areas.A_moderate * density;
-        const pop_mild = areas.A_mild * density;
+        const missFactor = 1 - result.missProbability; // Reduce population impact based on miss probability
+        const pop_severe = areas.A_severe * density * missFactor;
+        const pop_heavy = areas.A_heavy * density * missFactor;
+        const pop_moderate = areas.A_moderate * density * missFactor;
+        const pop_mild = areas.A_mild * density * missFactor;
         const totalAffected = pop_severe + pop_heavy + pop_moderate + pop_mild;
-        const fatal_severe = pop_severe * 0.9;
-        const fatal_heavy = pop_heavy * 0.5;
-        const fatal_moderate = pop_moderate * 0.15;
-        const fatal_mild = pop_mild * 0.02;
+        const fatal_severe = pop_severe * (0.9 * (1 - result.fragPct / 100)); // Fragmentation reduces fatalities
+        const fatal_heavy = pop_heavy * (0.5 * (1 - result.fragPct / 100));
+        const fatal_moderate = pop_moderate * (0.15 * (1 - result.fragPct / 100));
+        const fatal_mild = pop_mild * (0.02 * (1 - result.fragPct / 100));
         const totalFatal = fatal_severe + fatal_heavy + fatal_moderate + fatal_mild;
         return {
           densityData,
@@ -891,6 +921,8 @@
           radiiEl.textContent = '0 / 0 / 0 / 0';
           thermalEl.textContent = '0';
           seismicEl.textContent = '0';
+          deflectedEl.textContent = result.deflectPct;
+          fragmentedEl.textContent = result.fragPct;
           popAffectedEl.textContent = '0';
           fatalitiesEl.textContent = '0';
           popNote.textContent = 'No population affected due to atmospheric disintegration.';
@@ -948,6 +980,8 @@
         radiiEl.textContent = `${fmtFixed(result.severe_km, 2)} / ${fmtFixed(result.heavy_km, 2)} / ${fmtFixed(result.moderate_km, 2)} / ${fmtFixed(result.mild_km, 2)}`;
         thermalEl.textContent = fmtFixed(result.thermal_km, 2);
         seismicEl.textContent = fmtFixed(result.seismic_mag, 1);
+        deflectedEl.textContent = result.deflectPct;
+        fragmentedEl.textContent = result.fragPct;
 
         popNote.textContent = isSea
           ? 'Impact over sea — no population affected.'
@@ -961,9 +995,9 @@
             if (totalAff < 1) popAffectedEl.textContent = '<1';
             if (totalFatal < 1) fatalitiesEl.textContent = '<1';
             if (popEst.densityData && popEst.densityData.name) {
-              popNote.textContent = `Using country-average density for ${popEst.densityData.name} (${Math.round(popEst.densityData.density)} ppl/km²). This is a coarse estimate.`;
+              popNote.textContent = `Using country-average density for ${popEst.densityData.name} (${Math.round(popEst.densityData.density)} ppl/km²). Deflection may have reduced impact.`;
             } else {
-              popNote.textContent = `Using fallback global-average density (${Math.round(popEst.density)} ppl/km²). For more accuracy, connect a gridded population dataset.`;
+              popNote.textContent = `Using fallback global-average density (${Math.round(popEst.density)} ppl/km²). Deflection may have reduced impact.`;
             }
           } else {
             popAffectedEl.textContent = '0';
@@ -1094,6 +1128,7 @@
           let density = Number(densityR.value);
           let lat = Number(latR.value);
           let lng = Number(lngR.value);
+          const method = deflectMethod.value;
 
           // Input validation and defaults
           mass = isFinite(mass) ? mass : 1e9;
@@ -1102,23 +1137,9 @@
           lat = isFinite(lat) ? Math.max(-90, Math.min(90, lat)) : 0;
           lng = isFinite(lng) ? Math.max(-180, Math.min(180, lng)) : 0;
 
-          let deflectPct = 0;
-          let fragPct = 0;
-          const method = deflectMethod.value;
-          if (method === 'kinetic') {
-            deflectPct = 10;
-            fragPct = 5;
-          } else if (method === 'nuclear') {
-            deflectPct = 20;
-            fragPct = 30;
-          } else if (method === 'gravity') {
-            deflectPct = 5;
-            fragPct = 0;
-          }
+          console.log('Simulation inputs:', { mass, speed, density, lat, lng, method });
 
-          console.log('Simulation inputs:', { mass, speed, density, lat, lng });
-
-          const res = computeImpact(mass, speed, density, deflectPct, fragPct);
+          const res = computeImpact(mass, speed, density, method);
 
           astDiaEl.textContent = fmtFixed(res.diameter_m, 1);
           keValEl.textContent = fmt(parseFloat(res.ke.toFixed(0)));
@@ -1128,8 +1149,8 @@
           radiiEl.textContent = res.disintegrates ? '0 / 0 / 0 / 0' : `${fmtFixed(res.severe_km, 2)} / ${fmtFixed(res.heavy_km, 2)} / ${fmtFixed(res.moderate_km, 2)} / ${fmtFixed(res.mild_km, 2)}`;
           thermalEl.textContent = res.disintegrates ? '0' : fmtFixed(res.thermal_km, 2);
           seismicEl.textContent = res.disintegrates ? '0' : fmtFixed(res.seismic_mag, 1);
-          deflectedEl.textContent = deflectPct;
-          fragmentedEl.textContent = fragPct;
+          deflectedEl.textContent = res.deflectPct;
+          fragmentedEl.textContent = res.fragPct;
 
           const megatons = res.ke / 4.184e15;
           if (res.disintegrates) {
