@@ -1102,19 +1102,21 @@
           lat = isFinite(lat) ? Math.max(-90, Math.min(90, lat)) : 0;
           lng = isFinite(lng) ? Math.max(-180, Math.min(180, lng)) : 0;
 
-          let deflectPct = 0;
-          let fragPct = 0;
+          let baseDeflect = 0, baseFrag = 0;
           const method = deflectMethod.value;
           if (method === 'kinetic') {
-            deflectPct = 10;
-            fragPct = 5;
+            baseDeflect = 10;
+            baseFrag = 5;
           } else if (method === 'nuclear') {
-            deflectPct = 20;
-            fragPct = 30;
+            baseDeflect = 20;
+            baseFrag = 30;
           } else if (method === 'gravity') {
-            deflectPct = 5;
-            fragPct = 0;
+            baseDeflect = 5;
+            baseFrag = 0;
           }
+          const refMass = 1e9;
+          let deflectPct = Math.min(100, baseDeflect * (refMass / mass));
+          let fragPct = Math.min(100, baseFrag * (refMass / mass));
 
           console.log('Simulation inputs:', { mass, speed, density, lat, lng });
 
@@ -1128,8 +1130,8 @@
           radiiEl.textContent = res.disintegrates ? '0 / 0 / 0 / 0' : `${fmtFixed(res.severe_km, 2)} / ${fmtFixed(res.heavy_km, 2)} / ${fmtFixed(res.moderate_km, 2)} / ${fmtFixed(res.mild_km, 2)}`;
           thermalEl.textContent = res.disintegrates ? '0' : fmtFixed(res.thermal_km, 2);
           seismicEl.textContent = res.disintegrates ? '0' : fmtFixed(res.seismic_mag, 1);
-          deflectedEl.textContent = deflectPct;
-          fragmentedEl.textContent = fragPct;
+          deflectedEl.textContent = fmtFixed(deflectPct, 2);
+          fragmentedEl.textContent = fmtFixed(fragPct, 2);
 
           const megatons = res.ke / 4.184e15;
           if (res.disintegrates) {
