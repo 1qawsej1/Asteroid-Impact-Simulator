@@ -530,10 +530,10 @@
 
         viewer.scene.globe.enableLighting = true;
 
-        // Load 3D tileset (OSM Buildings, ID 96188)
+        // Load 3D tileset (OSM Buildings, ID )
         try {
-          console.log('Attempting to load 3D tileset (ID: 96188)...');
-          const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(96188);
+          console.log('Attempting to load 3D tileset (ID: 380185)...');
+          const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(380185);
           tileset.maximumScreenSpaceError = 16;
           viewer.scene.primitives.add(tileset);
           console.log('3D tileset loaded successfully.');
