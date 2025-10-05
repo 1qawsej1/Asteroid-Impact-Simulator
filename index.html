@@ -1,4 +1,43 @@
-<!doctype html>
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -15,6 +54,7 @@
   <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 
   <style>
+    @import url(../templates/bucket.css);
     :root {
       --bg: #0f1724;
       --card: #0b1220;
@@ -23,7 +63,7 @@
       --glass: rgba(255,255,255,0.03);
       font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
     }
-    html, body, #globe {
+    html, body, #cesiumContainer {
       height: 100%;
       margin: 0;
       padding: 0;
@@ -54,13 +94,13 @@
       box-shadow: 0 8px 30px rgba(2,6,23,0.6);
       position: relative;
     }
-    #globe {
+    #cesiumContainer {
       position: relative;
       width: 100%;
       height: 100%;
       overflow: hidden;
     }
-    #globe .cesium-viewer {
+    #cesiumContainer .cesium-viewer {
       position: absolute !important;
       top: 0 !important;
       left: 0 !important;
@@ -69,7 +109,7 @@
       width: 100% !important;
       height: 100% !important;
     }
-    #globe canvas {
+    #cesiumContainer canvas {
       width: 100% !important;
       height: 100% !important;
       display: block !important;
@@ -215,13 +255,36 @@
       font-size: 12px;
       color: var(--muted);
     }
+    #loadingOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      z-index: 1000;
+    }
+    #toolbar {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 500;
+    }
   </style>
 </head>
 <body>
   <div class="app">
     <div class="left card">
-      <div id="globe"></div>
+      <div id="cesiumContainer" class="fullSize"></div>
       <div class="fall-wrap" id="fallWrap" aria-hidden="true"></div>
+      <div id="loadingOverlay">
+        <h1>Loading...</h1>
+      </div>
+      <div id="toolbar"></div>
     </div>
     <div class="right">
       <div class="card">
@@ -375,7 +438,7 @@
           console.warn('No Cesium Ion token provided. 3D tileset may not load.');
         }
 
-        const viewer = new Cesium.Viewer('globe', {
+        const viewer = new Cesium.Viewer('cesiumContainer', {
           imageryProvider: new Cesium.OpenStreetMapImageryProvider({
             url: 'https://tile.openstreetmap.org/'
           }),
@@ -390,7 +453,8 @@
           vrButton: false,
           infoBox: false,
           selectionIndicator: false,
-          sceneMode: Cesium.SceneMode.SCENE3D // Force 3D mode for consistent rendering
+          sceneMode: Cesium.SceneMode.SCENE3D,
+          toolbar: document.getElementById('toolbar') // Bind toolbar
         });
 
         // Explicitly set canvas size to match container
@@ -402,6 +466,10 @@
         canvas.height = container.clientHeight;
         viewer.resize();
         viewer.scene.requestRender(); // Force immediate render
+
+        // Hide loading overlay once viewer is initialized
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        loadingOverlay.style.display = 'none';
 
         // Constrain camera to prevent excessive zoom-out and ensure centering
         viewer.scene.screenSpaceCameraController.maximumZoomDistance = 25000000; // Reduced to 25,000 km
@@ -423,7 +491,7 @@
         // Load 3D tileset
         if (ionToken) {
           try {
-            console.log('Attempting to load 3D tileset (ID: 96188)...');
+            console.log('Attempting to load 3D tileset (ID: 3830185)...');
             const tileset = await viewer.scene.primitives.add(
               await Cesium.Cesium3DTileset.fromIonAssetId(96188)
             );
@@ -684,7 +752,7 @@
           density,
           perZone: {
             severe: { area_km2: areas.A_severe, pop: pop_severe, fatal: fatal_severe },
-            heavy: { area_km2: areas.A_heavy, pop: pop_heavy, fatal: fatal_heavy },
+            heavy: { area_km2: A_heavy, pop: pop_heavy, fatal: fatal_heavy },
             moderate: { area_km2: areas.A_moderate, pop: pop_moderate, fatal: fatal_moderate },
             mild: { area_km2: areas.A_mild, pop: pop_mild, fatal: fatal_mild }
           },
@@ -1049,4 +1117,3 @@
   </script>
 </body>
 </html>
-
