@@ -380,6 +380,16 @@
             <div class="value" id="fragVal">0%</div>
           </div>
           <div class="row">
+            <div class="label">k Factor</div>
+            <div style="flex:1"><input id="kFactorRange" type="range" min="1" max="20" step="1" value="8"></div>
+            <div class="value" id="kFactorVal">8</div>
+          </div>
+          <div class="row">
+            <div class="label">η₀ Fraction</div>
+            <div style="flex:1"><input id="etaFracRange" type="range" min="0.01" max="0.5" step="0.01" value="0.12"></div>
+            <div class="value" id="etaFracVal">0.12</div>
+          </div>
+          <div class="row">
             <div class="label">Impact Surface</div>
             <div style="flex:1">
               <label><input type="radio" name="impactType" value="land"> Land</label>
@@ -673,6 +683,8 @@
       const lngR = $('lngRange'), lngV = $('lngVal');
       const defR = $('deflectRange'), defV = $('deflectVal');
       const fragR = $('fragRange'), fragV = $('fragVal');
+      const kFactorR = $('kFactorRange'), kFactorV = $('kFactorVal');
+      const etaFracR = $('etaFracRange'), etaFracV = $('etaFracVal');
       const astDiaEl = $('astDia'), keValEl = $('keVal'), keSciEl = $('keSci');
       const airburstEl = $('airburstVal'), craterEl = $('craterVal'), radiiEl = $('radiiVal');
       const thermalEl = $('thermalVal'), seismicEl = $('seismicVal');
@@ -693,8 +705,10 @@
         lngV.textContent = Number(lngR.value).toFixed(4) + '°';
         defV.textContent = defR.value + '%';
         fragV.textContent = fragR.value + '%';
+        kFactorV.textContent = kFactorR.value;
+        etaFracV.textContent = Number(etaFracR.value).toFixed(2);
       }
-      [massR, speedR, angleR, densityR, latR, lngR, defR, fragR].forEach(el => el.addEventListener('input', updateDisplays));
+      [massR, speedR, angleR, densityR, latR, lngR, defR, fragR, kFactorR, etaFracR].forEach(el => el.addEventListener('input', updateDisplays));
       updateDisplays();
 
       // --- Physics ---
@@ -814,12 +828,15 @@
         return { A_severe, A_heavy, A_moderate, A_mild };
       }
 
-      async function estimatePopulationImpact(lat, lng, result) {
-        if (result.disintegrates) {
+      async function estimatePopulationImpact(lat, lng, result, impactType) {
+        if (result.disintegrates || impactType === 'sea') {
           return { densityData: null, density: 0, perZone: {}, totalAffected: 0, totalFatal: 0 };
         }
         const fallbackDensity = 60;
         const countryCode = await reverseGeocodeCountry(lat, lng);
+        if (!countryCode) {
+          return { densityData: null, density: 0, perZone: {}, totalAffected: 0, totalFatal: 0 };
+        }
         let densityData = null;
         if (countryCode) {
           densityData = await fetchCountryDensity(countryCode).catch(() => null);
@@ -894,7 +911,7 @@
         return entity;
       }
 
-      async function drawImpact(lat, lng, result) {
+      async function drawImpact(lat, lng, result, impactType) {
         clearImpact();
         if (result.disintegrates) {
           warnBox.style.display = 'block';
@@ -955,7 +972,7 @@
 
         popNote.textContent = 'Estimating population — fetching country data...';
         try {
-          const popEst = await estimatePopulationImpact(lat, lng, result);
+          const popEst = await estimatePopulationImpact(lat, lng, result, impactType);
           const totalAff = Math.round(popEst.totalAffected);
           const totalFatal = Math.round(popEst.totalFatal);
           popAffectedEl.textContent = totalAff.toLocaleString();
@@ -1091,6 +1108,8 @@
           const lng = Number(lngR.value);
           const def = Number(defR.value);
           const frag = Number(fragR.value);
+          const kFactor = Number(kFactorR.value);
+          const etaFrac = Number(etaFracR.value);
 
           const res = computeImpact(mass, speed, angle, density, def, frag);
 
@@ -1118,39 +1137,59 @@
           }
 
           if (impactType === 'sea' && !res.disintegrates) {
-            const ke = res.ke;
-            const tsunami_height = Math.pow(ke / 1e15, 1/3);
-            const ocean_depth = 4000;
+            const asteroid_radius = res.diameter_m / 2;
+            const Rc = kFactor * asteroid_radius * Math.pow(res.ke / 1e15, 1/3);
+            const eta0 = etaFrac * Rc;
             const g = 9.81;
-            const tsunami_speed = Math.sqrt(g * ocean_depth);
-            tsunamiHeightEl.textContent = fmtFixed(tsunami_height, 1);
-            tsunamiSpeedEl.textContent = fmtFixed(tsunami_speed, 1);
+            const H = 4000;
+            const c = Math.sqrt(g * H);
+            tsunamiHeightEl.textContent = fmtFixed(eta0, 2);
+            tsunamiSpeedEl.textContent = fmtFixed(c, 1);
             tsunamiHeightBox.style.display = 'block';
             tsunamiSpeedBox.style.display = 'block';
 
-            const tsunamiEllipse = viewer.entities.add({
-              position: Cesium.Cartesian3.fromDegrees(lng, lat),
-              ellipse: {
-                semiMajorAxis: 0,
-                semiMinorAxis: 0,
-                material: Cesium.Color.BLUE.withAlpha(0.3),
-                outline: false
-              }
-            });
-            impactEntities.push(tsunamiEllipse);
+            if (animate) {
+              animateFallTo(lat, lng, () => drawImpact(lat, lng, res, impactType));
+            } else {
+              drawImpact(lat, lng, res, impactType);
+            }
 
-            const startTime = Cesium.JulianDate.now();
-            const maxRadius = 5000000; // 5000 km in meters
-            const animationDuration = 5; // seconds
+            // Tsunami animation
+            const rings = 6;
+            const tsunamiEntities = [];
+            for (let i = 0; i < rings; i++) {
+              const entity = viewer.entities.add({
+                position: Cesium.Cartesian3.fromDegrees(lng, lat),
+                ellipse: {
+                  semiMajorAxis: 0,
+                  semiMinorAxis: 0,
+                  material: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.3 - i * 0.04),
+                  outline: false
+                }
+              });
+              tsunamiEntities.push(entity);
+              impactEntities.push(entity);
+            }
+
+            let startTime = performance.now();
             function animateTsunami() {
-              const currentTime = Cesium.JulianDate.now();
-              const elapsed = Cesium.JulianDate.secondsDifference(currentTime, startTime);
-              const progress = Math.min(elapsed / animationDuration, 1);
-              const currentRadius = progress * maxRadius;
-              tsunamiEllipse.ellipse.semiMajorAxis = currentRadius;
-              tsunamiEllipse.ellipse.semiMinorAxis = currentRadius;
+              const elapsed = (performance.now() - startTime) / 1000;
+              const crestRadius = c * elapsed;
+              for (let i = 0; i < rings; i++) {
+                const r = crestRadius - i * (Rc * 0.6);
+                if (r > 0) {
+                  const amp = eta0 / Math.sqrt(Math.max(1, r));
+                  const alpha = Math.min(1, 0.2 + 0.8 * (amp / eta0));
+                  tsunamiEntities[i].ellipse.semiMajorAxis = r * 1000;
+                  tsunamiEntities[i].ellipse.semiMinorAxis = r * 1000;
+                  tsunamiEntities[i].ellipse.material = Cesium.Color.fromCssColorString('#38bdf8').withAlpha(alpha * 0.5);
+                } else {
+                  tsunamiEntities[i].ellipse.semiMajorAxis = 0;
+                  tsunamiEntities[i].ellipse.semiMinorAxis = 0;
+                }
+              }
               viewer.scene.requestRender();
-              if (progress < 1) {
+              if (elapsed < 60) { // Animate for 60 seconds
                 requestAnimationFrame(animateTsunami);
               }
             }
@@ -1158,12 +1197,11 @@
           } else {
             tsunamiHeightBox.style.display = 'none';
             tsunamiSpeedBox.style.display = 'none';
-          }
-
-          if (animate) {
-            animateFallTo(lat, lng, () => drawImpact(lat, lng, res));
-          } else {
-            drawImpact(lat, lng, res);
+            if (animate) {
+              animateFallTo(lat, lng, () => drawImpact(lat, lng, res, impactType));
+            } else {
+              drawImpact(lat, lng, res, impactType);
+            }
           }
         } catch (e) {
           console.error('Simulation error:', e);
@@ -1217,7 +1255,7 @@
       $('simulateBtn').addEventListener('click', () => simulate(false));
       $('resetBtn').addEventListener('click', () => clearImpact());
       $('animateBtn').addEventListener('click', () => simulate(true));
-      [massR, speedR, angleR, densityR, latR, lngR, defR, fragR].forEach(el => el.addEventListener('input', () => debouncedSimulate(false)));
+      [massR, speedR, angleR, densityR, latR, lngR, defR, fragR, kFactorR, etaFracR].forEach(el => el.addEventListener('input', () => debouncedSimulate(false)));
       simulate(false);
 
       document.addEventListener('keydown', (e) => {
