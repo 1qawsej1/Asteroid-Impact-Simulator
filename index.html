@@ -514,19 +514,29 @@
         }
 
         const viewer = new Cesium.Viewer('cesiumContainer', {
-          baseLayerPicker: false,
-          geocoder: false,
-          homeButton: false,
-          sceneModePicker: false,
-          navigationHelpButton: false,
-          animation: false,
-          timeline: false,
-          fullscreenButton: false,
-          vrButton: false,
-          infoBox: false,
-          selectionIndicator: false,
-          sceneMode: Cesium.SceneMode.SCENE3D,
-        });
+        baseLayerPicker: false,
+        geocoder: false,
+        homeButton: false,
+        sceneModePicker: false,
+        navigationHelpButton: false,
+        animation: false,
+        timeline: false,
+        fullscreenButton: false,
+        vrButton: false,
+        infoBox: false,
+        selectionIndicator: false,
+        sceneMode: Cesium.SceneMode.SCENE3D,
+        terrainProvider: await Cesium.CesiumTerrainProvider.fromIonAssetId(1, {
+            requestWaterMask: true,  // Enables water mask sampling
+            requestVertexNormals: true  // Optional: Improves lighting/shading
+        })
+    });
+const scene = viewer.scene;
+    const globe = scene.globe;
+    globe.showWaterEffect = true;  // Optional: Visualizes water for debugging
+
+    return viewer;
+}
 
         // Explicitly set canvas size to match container
         const container = viewer.container;
@@ -563,9 +573,9 @@
         // Load 3D tileset
         if (ionToken) {
           try {
-            console.log('Attempting to load 3D tileset (ID: 1)...');
+            console.log('Attempting to load 3D tileset (ID: 3830185)...');
             const tileset = await viewer.scene.primitives.add(
-              await Cesium.Cesium3DTileset.fromIonAssetId(1)
+              await Cesium.Cesium3DTileset.fromIonAssetId(3830185)
             );
             tileset.maximumScreenSpaceError = 16;
             console.log('3D tileset loaded successfully.');
