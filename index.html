@@ -574,9 +574,9 @@
         // Load 3D tileset
         if (ionToken) {
           try {
-            console.log('Attempting to load 3D tileset (ID: 3830185)...');
+            console.log('Attempting to load 3D tileset (ID: 1)...');
             const tileset = await viewer.scene.primitives.add(
-              await Cesium.Cesium3DTileset.fromIonAssetId(3830185)
+              await Cesium.Cesium3DTileset.fromIonAssetId(1)
             );
             tileset.maximumScreenSpaceError = 16;
             console.log('3D tileset loaded successfully.');
