@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -1161,12 +1161,13 @@
               const entity = viewer.entities.add({
                 position: Cesium.Cartesian3.fromDegrees(lng, lat),
                 ellipse: {
-                  semiMajorAxis: 0,
-                  semiMinorAxis: 0,
+                  semiMajorAxis: 1,
+                  semiMinorAxis: 1,
                   material: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.3 - i * 0.04),
                   outline: false
                 }
               });
+              entity.show = false;
               tsunamiEntities.push(entity);
               impactEntities.push(entity);
             }
@@ -1183,9 +1184,9 @@
                   tsunamiEntities[i].ellipse.semiMajorAxis = r * 1000;
                   tsunamiEntities[i].ellipse.semiMinorAxis = r * 1000;
                   tsunamiEntities[i].ellipse.material = Cesium.Color.fromCssColorString('#38bdf8').withAlpha(alpha * 0.5);
+                  tsunamiEntities[i].show = true;
                 } else {
-                  tsunamiEntities[i].ellipse.semiMajorAxis = 0;
-                  tsunamiEntities[i].ellipse.semiMinorAxis = 0;
+                  tsunamiEntities[i].show = false;
                 }
               }
               viewer.scene.requestRender();
