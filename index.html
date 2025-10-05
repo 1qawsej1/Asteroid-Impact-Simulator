@@ -24,6 +24,9 @@
       --glass: rgba(255,255,255,0.03);
       font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
     }
+    * {
+      box-sizing: border-box;
+    }
     html, body, #cesiumContainer {
       height: 100%;
       margin: 0;
@@ -85,6 +88,7 @@
       gap: 14px;
       overflow-y: auto;
       height: calc(100vh - 36px);
+      -webkit-overflow-scrolling: touch;
     }
     .card {
       background: var(--card);
@@ -102,7 +106,7 @@
       transition: max-height 0.3s ease-in-out;
     }
     .controls.visible {
-      max-height: 600px; /* Increased for better mobile fit */
+      max-height: none; /* Allow full expansion on all devices */
     }
     .row {
       display: flex;
@@ -115,6 +119,7 @@
       font-size: 13px;
       color: var(--muted);
       flex-shrink: 0;
+      font-weight: 500;
     }
     .value {
       font-weight: 600;
@@ -208,8 +213,8 @@
       }
       .left {
         max-width: none;
-        height: 50vh; /* Reduced to make room for panels on mobile */
-        min-height: 250px;
+        height: 60vh; /* Increased for better globe visibility on mobile */
+        min-height: 300px;
       }
       .right {
         width: 100%;
@@ -242,14 +247,8 @@
       button {
         flex: none;
         min-width: auto;
-        padding: 6px 10px;
-      }
-      .controls.visible {
-        max-height: none; /* On mobile, expand fully without limit */
-      }
-      /* Auto-show controls on mobile for better UX */
-      .controls {
-        max-height: none;
+        padding: 8px 12px; /* Larger padding for touch */
+        font-size: 14px;
       }
       .toggle-btn {
         display: none; /* Hide toggle on mobile since controls are always visible */
@@ -260,7 +259,7 @@
         padding: 8px;
       }
       .left {
-        height: 40vh;
+        height: 50vh; /* Adjusted for very small screens */
       }
       .output strong {
         width: 100%;
@@ -548,9 +547,10 @@
         viewer.scene.screenSpaceCameraController.minimumZoomDistance = 1000;
         viewer.scene.screenSpaceCameraController.enableTilt = false;
 
-        // Set initial view to center Earth
+        // Set initial view to center Earth, adjusted for device size
+        const initialZoomHeight = window.innerWidth <= 920 ? 10000000 : 20000000; // Closer view on smaller devices for better usability
         viewer.camera.setView({
-          destination: Cesium.Cartesian3.fromDegrees(0, 0, 20000000),
+          destination: Cesium.Cartesian3.fromDegrees(0, 0, initialZoomHeight),
           orientation: {
             heading: Cesium.Math.toRadians(0),
             pitch: Cesium.Math.toRadians(-90),
