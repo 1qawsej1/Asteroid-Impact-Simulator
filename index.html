@@ -147,6 +147,10 @@
       border-radius: 10px;
       font-size: 13px;
     }
+    .output#surfaceType {
+      font-weight: 600;
+      color: #e6eef8;
+    }
     .output strong {
       width: 180px;
       display: inline-block;
@@ -514,29 +518,26 @@
         }
 
         const viewer = new Cesium.Viewer('cesiumContainer', {
-        baseLayerPicker: false,
-        geocoder: false,
-        homeButton: false,
-        sceneModePicker: false,
-        navigationHelpButton: false,
-        animation: false,
-        timeline: false,
-        fullscreenButton: false,
-        vrButton: false,
-        infoBox: false,
-        selectionIndicator: false,
-        sceneMode: Cesium.SceneMode.SCENE3D,
-        terrainProvider: await Cesium.CesiumTerrainProvider.fromIonAssetId(1, {
+          baseLayerPicker: false,
+          geocoder: false,
+          homeButton: false,
+          sceneModePicker: false,
+          navigationHelpButton: false,
+          animation: false,
+          timeline: false,
+          fullscreenButton: false,
+          vrButton: false,
+          infoBox: false,
+          selectionIndicator: false,
+          sceneMode: Cesium.SceneMode.SCENE3D,
+          terrainProvider: await Cesium.CesiumTerrainProvider.fromIonAssetId(1, {
             requestWaterMask: true,  // Enables water mask sampling
             requestVertexNormals: true  // Optional: Improves lighting/shading
-        })
-    });
-const scene = viewer.scene;
-    const globe = scene.globe;
-    globe.showWaterEffect = true;  // Optional: Visualizes water for debugging
-
-    return viewer;
-}
+          })
+        });
+        const scene = viewer.scene;
+        const globe = scene.globe;
+        globe.showWaterEffect = true;  // Optional: Visualizes water for debugging
 
         // Explicitly set canvas size to match container
         const container = viewer.container;
@@ -558,7 +559,7 @@ const scene = viewer.scene;
         viewer.scene.screenSpaceCameraController.enableTilt = false;
 
         // Set initial view to center Earth, adjusted for device size
-        const initialZoomHeight = window.innerWidth <= 920 ? 10000000 : 20000000; // Closer view on smaller devices for better usability
+        const initialZoomHeight = window.innerWidth <= 920 ? 10000000 : 20000000;
         viewer.camera.setView({
           destination: Cesium.Cartesian3.fromDegrees(0, 0, initialZoomHeight),
           orientation: {
@@ -627,7 +628,49 @@ const scene = viewer.scene;
       const viewer = await initializeViewer();
       const impactEntities = [];
 
-      // Resize handler for window changes
+      // --- Surface Detection ---
+      async function detectSurfaceType(longitude, latitude, viewer) {
+        const scene = viewer.scene;
+        const globe = scene.globe;
+
+        // Step 1: Compute surface intersection via vertical raycast
+        const rayEndpoint = Cesium.Cartesian3.fromDegrees(longitude, latitude, 1000000.0); // 1,000km up
+        const rayOrigin = Cesium.Cartesian3.fromDegrees(longitude, latitude, -1000000.0); // Deep underground
+        const ray = new Cesium.Ray(rayEndpoint, new Cesium.Cartesian3(0, 0, -1)); // Downward direction
+
+        const intersection = await new Promise(resolve => {
+          scene.globe.tileLoadProgressEvent.addEventListener(() => {
+            const result = scene.pickFromRay(ray, { includeGroundSurface: true });
+            if (result && result.position) resolve(result);
+          }, { once: true });
+          scene.requestRender();
+        });
+
+        if (!intersection || !intersection.position) {
+          console.warn('No surface intersection found');
+          return false; // Fallback: Assume land for robustness
+        }
+
+        // Step 2: Sample water mask at intersection
+        const cartographic = Cesium.Cartographic.fromCartesian(intersection.position);
+        const tile = globe._surface._tilesToRender.find(t => t.data && t.data.isPointInTile(cartographic));
+        if (tile && tile.data && tile.data.waterMask) {
+          const waterMask = tile.data.waterMask;
+          const x = Math.floor(intersection.uv.x * waterMask.width);
+          const y = Math.floor(intersection.uv.y * waterMask.height);
+          const index = y * waterMask.width + x;
+          const value = waterMask[index]; // Uint8 value (0 = land, 255 = water)
+          return value > 127; // Threshold: >50% water = sea
+        }
+
+        // Fallback: Use elevation (negative = likely sea, but less reliable)
+        const surfaceHeight = await Cesium.sampleTerrainMostDetailed(viewer.terrainProvider, [
+          Cesium.Cartographic.fromDegrees(longitude, latitude)
+        ]);
+        return surfaceHeight[0].height < 0;
+      }
+
+      // --- Resize Handler ---
       window.addEventListener('resize', () => {
         const container = viewer.container;
         const canvas = viewer.scene.canvas;
@@ -838,7 +881,7 @@ const scene = viewer.scene;
           density,
           perZone: {
             severe: { area_km2: areas.A_severe, pop: pop_severe, fatal: fatal_severe },
-            heavy: { area_km2: areas.A_heavy, pop: pop_heavy, fatal: fatal_heavy },
+            heavy: { area_km2: A_heavy, pop: pop_heavy, fatal: fatal_heavy },
             moderate: { area_km2: areas.A_moderate, pop: pop_moderate, fatal: fatal_moderate },
             mild: { area_km2: areas.A_mild, pop: pop_mild, fatal: fatal_mild }
           },
@@ -861,6 +904,8 @@ const scene = viewer.scene;
         seismicEl.textContent = '—';
         popAffectedEl.textContent = '—';
         fatalitiesEl.textContent = '—';
+        const surfaceOutput = document.getElementById('surfaceType');
+        if (surfaceOutput) surfaceOutput.remove();
         popNote.textContent = 'Population estimated using country-average density. Click the globe to simulate and fetch local country data.';
         viewer.scene.requestRender();
       }
@@ -938,35 +983,6 @@ const scene = viewer.scene;
             viewer.scene.requestRender();
           }
         });
-
-        astDiaEl.textContent = fmtFixed(result.diameter_m, 1);
-        keValEl.textContent = fmt(parseFloat(result.ke.toFixed(0)));
-        keSciEl.textContent = fmtSci(result.ke);
-        airburstEl.textContent = '0';
-        craterEl.textContent = fmtFixed(result.crater_km, 2);
-        radiiEl.textContent = `${fmtFixed(result.severe_km, 2)} / ${fmtFixed(result.heavy_km, 2)} / ${fmtFixed(result.moderate_km, 2)} / ${fmtFixed(result.mild_km, 2)}`;
-        thermalEl.textContent = fmtFixed(result.thermal_km, 2);
-        seismicEl.textContent = fmtFixed(result.seismic_mag, 1);
-
-        popNote.textContent = 'Estimating population — fetching country data...';
-        try {
-          const popEst = await estimatePopulationImpact(lat, lng, result);
-          const totalAff = Math.round(popEst.totalAffected);
-          const totalFatal = Math.round(popEst.totalFatal);
-          popAffectedEl.textContent = totalAff.toLocaleString();
-          fatalitiesEl.textContent = totalFatal.toLocaleString();
-          if (popEst.densityData && popEst.densityData.name) {
-            popNote.textContent = `Using country-average density for ${popEst.densityData.name} (${Math.round(popEst.densityData.density)} ppl/km²). This is a coarse estimate.`;
-          } else {
-            popNote.textContent = `Using fallback global-average density (${Math.round(popEst.density)} ppl/km²). For more accuracy, connect a gridded population dataset.`;
-          }
-          if (totalAff < 1) popAffectedEl.textContent = '<1';
-          if (totalFatal < 1) fatalitiesEl.textContent = '<1';
-        } catch (e) {
-          popNote.textContent = 'Population estimation failed — showing no estimate.';
-          console.warn('Population estimation error:', e);
-        }
-        viewer.scene.requestRender();
       }
 
       // --- Raycasting for Clicking Globe ---
@@ -1068,7 +1084,7 @@ const scene = viewer.scene;
       // --- Simulation ---
       const debouncedSimulate = debounce((animate = false) => simulate(animate), 80);
 
-      function simulate(animate = false) {
+      async function simulate(animate = false) {
         try {
           const mass = Number(massR.value);
           const speed = Number(speedR.value);
@@ -1079,30 +1095,89 @@ const scene = viewer.scene;
           const def = Number(defR.value);
           const frag = Number(fragR.value);
 
+          // Detect surface type (land or sea)
+          const isSea = await detectSurfaceType(lng, lat, viewer);
+          const surfaceType = isSea ? 'sea' : 'land';
+          console.log(`Impact surface: ${surfaceType}`);
+
+          // Compute impact parameters
           const res = computeImpact(mass, speed, angle, density, def, frag);
 
+          // Adjust for sea impacts (no crater unless massive, no direct population)
+          if (isSea && !res.disintegrates) {
+            res.crater_km = 0; // No crater for sea impacts (simplification)
+            res.severe_km = 0;
+            res.heavy_km = 0;
+            res.moderate_km = 0;
+            res.mild_km = 0;
+            res.seismic_mag = 0; // No seismic effect on water
+            warnBox.style.display = 'block';
+            warnText.textContent = `Impact over sea — no crater formed. Tsunami effects not modeled.`;
+          }
+
+          // Update UI displays
           astDiaEl.textContent = fmtFixed(res.diameter_m, 1);
           keValEl.textContent = fmt(parseFloat(res.ke.toFixed(0)));
           keSciEl.textContent = fmtSci(res.ke);
           airburstEl.textContent = res.disintegrates ? fmtFixed(res.airburst_km, 1) : '0';
-          craterEl.textContent = res.disintegrates ? '0' : fmtFixed(res.crater_km, 2);
-          radiiEl.textContent = res.disintegrates ? '0 / 0 / 0 / 0' : `${fmtFixed(res.severe_km, 2)} / ${fmtFixed(res.heavy_km, 2)} / ${fmtFixed(res.moderate_km, 2)} / ${fmtFixed(res.mild_km, 2)}`;
-          thermalEl.textContent = res.disintegrates ? '0' : fmtFixed(res.thermal_km, 2);
-          seismicEl.textContent = res.disintegrates ? '0' : fmtFixed(res.seismic_mag, 1);
+          craterEl.textContent = res.disintegrates || isSea ? '0' : fmtFixed(res.crater_km, 2);
+          radiiEl.textContent = res.disintegrates || isSea ? '0 / 0 / 0 / 0' : `${fmtFixed(res.severe_km, 2)} / ${fmtFixed(res.heavy_km, 2)} / ${fmtFixed(res.moderate_km, 2)} / ${fmtFixed(res.mild_km, 2)}`;
+          thermalEl.textContent = res.disintegrates || isSea ? '0' : fmtFixed(res.thermal_km, 2);
+          seismicEl.textContent = res.disintegrates || isSea ? '0' : fmtFixed(res.seismic_mag, 1);
 
           const megatons = res.ke / 4.184e15;
           if (res.disintegrates) {
             warnBox.style.display = 'block';
             warnText.textContent = `Meteor disintegrates in atmosphere at ~${fmtFixed(res.airburst_km, 1)} km altitude — no ground impact.`;
+          } else if (isSea) {
+            warnBox.style.display = 'block';
+            warnText.textContent = `Impact over sea — no crater formed. Tsunami effects not modeled.`;
           } else if (megatons > 1000) {
-            warnText.textContent = `Extreme energy: ~${Math.round(megatons).toLocaleString()} megatons — global catastrophic potential.`;
             warnBox.style.display = 'block';
+            warnText.textContent = `Extreme energy: ~${Math.round(megatons).toLocaleString()} megatons — global catastrophic potential on land.`;
           } else if (megatons > 10) {
-            warnText.textContent = `Large impact: ~${Math.round(megatons).toLocaleString()} megatons — regional devastation.`;
             warnBox.style.display = 'block';
+            warnText.textContent = `Large impact: ~${Math.round(megatons).toLocaleString()} megatons — regional devastation on land.`;
           } else {
             warnBox.style.display = 'none';
           }
+
+          // Estimate population impact (no population for sea impacts)
+          if (isSea) {
+            popAffectedEl.textContent = '0';
+            fatalitiesEl.textContent = '0';
+            popNote.textContent = 'No population affected — impact over sea.';
+          } else {
+            popNote.textContent = 'Estimating population — fetching country data...';
+            try {
+              const popEst = await estimatePopulationImpact(lat, lng, res);
+              const totalAff = Math.round(popEst.totalAffected);
+              const totalFatal = Math.round(popEst.totalFatal);
+              popAffectedEl.textContent = totalAff.toLocaleString();
+              fatalitiesEl.textContent = totalFatal.toLocaleString();
+              if (popEst.densityData && popEst.densityData.name) {
+                popNote.textContent = `Using country-average density for ${popEst.densityData.name} (${Math.round(popEst.densityData.density)} ppl/km²). This is a coarse estimate.`;
+              } else {
+                popNote.textContent = `Using fallback global-average density (${Math.round(popEst.density)} ppl/km²). For more accuracy, connect a gridded population dataset.`;
+              }
+              if (totalAff < 1) popAffectedEl.textContent = '<1';
+              if (totalFatal < 1) fatalitiesEl.textContent = '<1';
+            } catch (e) {
+              popNote.textContent = 'Population estimation failed — showing no estimate.';
+              console.warn('Population estimation error:', e);
+            }
+          }
+
+          // Add surface type to output
+          const outputCard = document.querySelector('.card.outputs');
+          let surfaceOutput = document.getElementById('surfaceType');
+          if (!surfaceOutput) {
+            surfaceOutput = document.createElement('div');
+            surfaceOutput.id = 'surfaceType';
+            surfaceOutput.className = 'output';
+            outputCard.insertBefore(surfaceOutput, popAffectedEl.parentElement);
+          }
+          surfaceOutput.innerHTML = `<strong>Surface type:</strong> ${surfaceType.charAt(0).toUpperCase() + surfaceType.slice(1)}`;
 
           if (animate) {
             animateFallTo(lat, lng, () => drawImpact(lat, lng, res));
@@ -1112,7 +1187,7 @@ const scene = viewer.scene;
         } catch (e) {
           console.error('Simulation error:', e);
           warnBox.style.display = 'block';
-          warnText.textContent = 'Error during simulation — please check input values.';
+          warnText.textContent = 'Error during simulation — please check input values or terrain data.';
         }
       }
 
@@ -1204,4 +1279,3 @@ const scene = viewer.scene;
   </script>
 </body>
 </html>
-
