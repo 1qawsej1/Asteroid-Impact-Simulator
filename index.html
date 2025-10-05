@@ -141,7 +141,7 @@
       text-align: right;
       flex-shrink: 0;
     }
-    input[type=range], input[type=text] {
+    input[type=range], input[type=text], input[type=number] {
       width: 100%;
       max-width: 200px;
       padding: 6px;
@@ -243,7 +243,7 @@
       .value {
         min-width: 60px;
       }
-      input[type=range], input[type=text] {
+      input[type=range], input[type=text], input[type=number] {
         max-width: 100%;
       }
       .buttons {
@@ -362,6 +362,21 @@
               <option value="nuclear">Nuclear Deflection</option>
               <option value="gravity">Gravity Tractor</option>
             </select>
+          </div>
+          <div class="row" id="deflectionRateRow" style="display:none;">
+            <div class="label">Deflection Rate (%)</div>
+            <div style="flex:1"><input id="deflectionRate" type="range" min="0" max="100" step="1" value="0"></div>
+            <div class="value" id="deflectionRateVal">0</div>
+          </div>
+          <div class="row" id="fragmentRateRow" style="display:none;">
+            <div class="label">Fragment Rate (%)</div>
+            <div style="flex:1"><input id="fragmentRate" type="range" min="0" max="100" step="1" value="0"></div>
+            <div class="value" id="fragmentRateVal">0</div>
+          </div>
+          <div class="row" id="popReductionRow" style="display:none;">
+            <div class="label">Pop. Reduction (%)</div>
+            <div style="flex:1"><input id="popReduction" type="range" min="0" max="100" step="1" value="0"></div>
+            <div class="value" id="popReductionVal">0</div>
           </div>
           <div class="buttons" style="margin-top:6px">
             <button id="simulateBtn">Simulate Impact</button>
@@ -602,6 +617,12 @@
       const latR = $('latRange'), latV = $('latVal');
       const lngR = $('lngRange'), lngV = $('lngVal');
       const deflectMethod = $('deflectMethod');
+      const deflectionRateR = $('deflectionRate'), deflectionRateV = $('deflectionRateVal');
+      const fragmentRateR = $('fragmentRate'), fragmentRateV = $('fragmentRateVal');
+      const popReductionR = $('popReduction'), popReductionV = $('popReductionVal');
+      const deflectionRateRow = $('deflectionRateRow');
+      const fragmentRateRow = $('fragmentRateRow');
+      const popReductionRow = $('popReductionRow');
       const astDiaEl = $('astDia'), keValEl = $('keVal'), keSciEl = $('keSci');
       const airburstEl = $('airburstVal'), craterEl = $('craterVal'), radiiEl = $('radiiVal');
       const thermalEl = $('thermalVal'), seismicEl = $('seismicVal');
@@ -616,9 +637,47 @@
         densityV.textContent = fmt(Number(densityR.value) || 3000);
         latV.textContent = Number(latR.value || 0).toFixed(4) + '°';
         lngV.textContent = Number(lngR.value || 0).toFixed(4) + '°';
+        deflectionRateV.textContent = fmt(Number(deflectionRateR.value) || 0);
+        fragmentRateV.textContent = fmt(Number(fragmentRateR.value) || 0);
+        popReductionV.textContent = fmt(Number(popReductionR.value) || 0);
       }
-      [massR, speedR, densityR, latR, lngR].forEach(el => el.addEventListener('input', updateDisplays));
+      [massR, speedR, densityR, latR, lngR, deflectionRateR, fragmentRateR, popReductionR].forEach(el => el.addEventListener('input', updateDisplays));
       updateDisplays();
+
+      // --- Deflection Method Logic ---
+      function updateDeflectionControls() {
+        const method = deflectMethod.value;
+        if (method === 'none') {
+          deflectionRateRow.style.display = 'none';
+          fragmentRateRow.style.display = 'none';
+          popReductionRow.style.display = 'none';
+          deflectionRateR.value = 0;
+          fragmentRateR.value = 0;
+          popReductionR.value = 0;
+        } else {
+          deflectionRateRow.style.display = 'flex';
+          fragmentRateRow.style.display = 'flex';
+          popReductionRow.style.display = 'flex';
+          // Set default values based on method
+          if (method === 'kinetic') {
+            deflectionRateR.value = deflectionRateR.value || 10;
+            fragmentRateR.value = fragmentRateR.value || 5;
+            popReductionR.value = popReductionR.value || 10;
+          } else if (method === 'nuclear') {
+            deflectionRateR.value = deflectionRateR.value || 20;
+            fragmentRateR.value = fragmentRateR.value || 30;
+            popReductionR.value = popReductionR.value || 20;
+          } else if (method === 'gravity') {
+            deflectionRateR.value = deflectionRateR.value || 5;
+            fragmentRateR.value = fragmentRateR.value || 0;
+            popReductionR.value = popReductionR.value || 5;
+          }
+        }
+        updateDisplays();
+        debouncedSimulate(false);
+      }
+      deflectMethod.addEventListener('change', updateDeflectionControls);
+      updateDeflectionControls();
 
       // --- Physics ---
       function computeAsteroidDiameter(massKg, density) {
@@ -747,7 +806,7 @@
         return { A_severe, A_heavy, A_moderate, A_mild };
       }
 
-      async function estimatePopulationImpact(lat, lng, result) {
+      async function estimatePopulationImpact(lat, lng, result, popReduction) {
         if (result.disintegrates) {
           return { densityData: null, density: 0, perZone: {}, totalAffected: 0, totalFatal: 0, isSea: false };
         }
@@ -762,15 +821,16 @@
         }
         const density = densityData && densityData.density ? densityData.density : fallbackDensity;
         const areas = ringAreas(result.severe_km, result.heavy_km, result.moderate_km, result.mild_km);
-        const pop_severe = areas.A_severe * density;
-        const pop_heavy = areas.A_heavy * density;
-        const pop_moderate = areas.A_moderate * density;
-        const pop_mild = areas.A_mild * density;
+        const popReductionFactor = 1 - (popReduction / 100);
+        const pop_severe = areas.A_severe * density * popReductionFactor;
+        const pop_heavy = areas.A_heavy * density * popReductionFactor;
+        const pop_moderate = areas.A_moderate * density * popReductionFactor;
+        const pop_mild = areas.A_mild * density * popReductionFactor;
         const totalAffected = pop_severe + pop_heavy + pop_moderate + pop_mild;
-        const fatal_severe = pop_severe * 0.9;
-        const fatal_heavy = pop_heavy * 0.5;
-        const fatal_moderate = pop_moderate * 0.15;
-        const fatal_mild = pop_mild * 0.02;
+        const fatal_severe = pop_severe * 0.9 * popReductionFactor;
+        const fatal_heavy = pop_heavy * 0.5 * popReductionFactor;
+        const fatal_moderate = pop_moderate * 0.15 * popReductionFactor;
+        const fatal_mild = pop_mild * 0.02 * popReductionFactor;
         const totalFatal = fatal_severe + fatal_heavy + fatal_moderate + fatal_mild;
         return {
           densityData,
@@ -809,7 +869,7 @@
       }
 
       function createEllipse(lng, lat, radius_km, label, isSea, height = 0) {
-        if (!isFinite(lng) || !isFinite(lat) || !isFinite(height) || radius_km <= 0) {
+        if (!isFinite(lng) || !isFinite(lat) || !isFinite_StrictMath(height) || radius_km <= 0) {
           console.warn('Skipping ellipse creation due to invalid coordinates:', { lng, lat, height, radius_km });
           return null;
         }
@@ -847,13 +907,13 @@
         }
       }
 
-      async function drawImpact(lat, lng, result) {
+      async function drawImpact(lat, lng, result, popReduction) {
         if (!isFinite(lat) || !isFinite(lng)) {
           console.warn('Skipping drawImpact due to invalid lat/lng:', lat, lng);
           return;
         }
         clearImpact();
-        const popEst = await estimatePopulationImpact(lat, lng, result);
+        const popEst = await estimatePopulationImpact(lat, lng, result, popReduction);
         const isSea = popEst.isSea;
 
         if (result.disintegrates) {
@@ -961,6 +1021,7 @@
         if (cartesian) {
           const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
           if (cartographic && !isNaN(Cesium.Math.toDegrees(cartographic.longitude)) && !isNaN(Cesium.Math.toDegrees(cartographic.latitude))) {
+           ภาพ
             const lng = Cesium.Math.toDegrees(cartographic.longitude);
             const lat = Cesium.Math.toDegrees(cartographic.latitude);
             latR.value = Math.max(-90, Math.min(90, lat));
@@ -1070,6 +1131,9 @@
           let density = Number(densityR.value);
           let lat = Number(latR.value);
           let lng = Number(lngR.value);
+          let deflectPct = Number(deflectionRateR.value);
+          let fragPct = Number(fragmentRateR.value);
+          let popReduction = Number(popReductionR.value);
 
           // Input validation and defaults
           mass = isFinite(mass) ? mass : 1e9;
@@ -1077,22 +1141,11 @@
           density = isFinite(density) && density > 0 ? density : 3000;
           lat = isFinite(lat) ? Math.max(-90, Math.min(90, lat)) : 0;
           lng = isFinite(lng) ? Math.max(-180, Math.min(180, lng)) : 0;
+          deflectPct = isFinite(deflectPct) ? Math.max(0, Math.min(100, deflectPct)) : 0;
+          fragPct = isFinite(fragPct) ? Math.max(0, Math.min(100, fragPct)) : 0;
+          popReduction = isFinite(popReduction) ? Math.max(0, Math.min(100, popReduction)) : 0;
 
-          let deflectPct = 0;
-          let fragPct = 0;
-          const method = deflectMethod.value;
-          if (method === 'kinetic') {
-            deflectPct = 10;
-            fragPct = 5;
-          } else if (method === 'nuclear') {
-            deflectPct = 20;
-            fragPct = 30;
-          } else if (method === 'gravity') {
-            deflectPct = 5;
-            fragPct = 0;
-          }
-
-          console.log('Simulation inputs:', { mass, speed, density, lat, lng });
+          console.log('Simulation inputs:', { mass, speed, density, lat, lng, deflectPct, fragPct, popReduction });
 
           const res = computeImpact(mass, speed, density, deflectPct, fragPct);
 
@@ -1123,9 +1176,9 @@
 
           if (animate) {
             console.log('Starting fall animation');
-            animateFallTo(lat, lng, () => drawImpact(lat, lng, res));
+            animateFallTo(lat, lng, () => drawImpact(lat, lng, res, popReduction));
           } else {
-            drawImpact(lat, lng, res);
+            drawImpact(lat, lng, res, popReduction);
           }
         } catch (e) {
           console.error('Simulation error:', e);
@@ -1179,7 +1232,7 @@
       $('simulateBtn').addEventListener('click', () => simulate(false));
       $('resetBtn').addEventListener('click', () => clearImpact());
       $('animateBtn').addEventListener('click', () => simulate(true));
-      [massR, speedR, densityR, latR, lngR, deflectMethod].forEach(el => el.addEventListener('input', () => debouncedSimulate(false)));
+      [massR, speedR, densityR, latR, lngR, deflectMethod, deflectionRateR, fragmentRateR, popReductionR].forEach(el => el.addEventListener('input', () => debouncedSimulate(false)));
       simulate(false);
 
       document.addEventListener('keydown', (e) => {
@@ -1213,4 +1266,3 @@
   </script>
 </body>
 </html>
-
