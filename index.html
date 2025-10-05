@@ -106,13 +106,30 @@
       transition: max-height 0.3s ease-in-out;
     }
     .controls.visible {
-      max-height: none; /* Allow full expansion on all devices */
+      max-height: none;
     }
     .row {
       display: flex;
       gap: 10px;
       align-items: center;
-      flex-wrap: wrap; /* Allow wrapping on small screens */
+      flex-wrap: wrap;
+      position: relative;
+    }
+    .row:hover .tooltip {
+      display: block;
+    }
+    .tooltip {
+      display: none;
+      position: absolute;
+      top: -40px;
+      left: 0;
+      background: rgba(0,0,0,0.8);
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      z-index: 1000;
+      max-width: 200px;
     }
     .label {
       min-width: 88px;
@@ -129,7 +146,7 @@
     }
     input[type=range], input[type=text] {
       width: 100%;
-      max-width: 200px; /* Prevent overly wide sliders on mobile */
+      max-width: 200px;
       padding: 6px;
       border-radius: 6px;
       background: var(--glass);
@@ -146,6 +163,10 @@
       padding: 10px;
       border-radius: 10px;
       font-size: 13px;
+      position: relative;
+    }
+    .output:hover .tooltip {
+      display: block;
     }
     .output strong {
       width: 180px;
@@ -154,7 +175,7 @@
     .buttons {
       display: flex;
       gap: 8px;
-      flex-wrap: wrap; /* Allow button wrapping */
+      flex-wrap: wrap;
     }
     button {
       background: linear-gradient(180deg, var(--accent), #5b21b6);
@@ -205,6 +226,9 @@
     .sw.mild {
       background: linear-gradient(90deg, #c8f7a6, #e6ffcf);
     }
+    .sw.blue {
+      background: linear-gradient(90deg, #1e90ff, #87cefa);
+    }
     @media (max-width: 920px) {
       .app {
         flex-direction: column;
@@ -213,7 +237,7 @@
       }
       .left {
         max-width: none;
-        height: 60vh; /* Increased for better globe visibility on mobile */
+        height: 60vh;
         min-height: 300px;
       }
       .right {
@@ -238,6 +262,9 @@
       .value {
         min-width: 60px;
       }
+      .tooltip {
+        max-width: 100%;
+      }
       input[type=range], input[type=text] {
         max-width: 100%;
       }
@@ -247,11 +274,11 @@
       button {
         flex: none;
         min-width: auto;
-        padding: 8px 12px; /* Larger padding for touch */
+        padding: 8px 12px;
         font-size: 14px;
       }
       .toggle-btn {
-        display: none; /* Hide toggle on mobile since controls are always visible */
+        display: none;
       }
     }
     @media (max-width: 480px) {
@@ -259,7 +286,7 @@
         padding: 8px;
       }
       .left {
-        height: 50vh; /* Adjusted for very small screens */
+        height: 50vh;
       }
       .output strong {
         width: 100%;
@@ -338,51 +365,62 @@
           <div class="row">
             <div class="label">Cesium Ion Token</div>
             <div style="flex:1"><input id="ionToken" type="text" placeholder="Enter Cesium Ion Token"></div>
+            <div class="tooltip">Access token for Cesium 3D tiles (optional for buildings).</div>
           </div>
           <div class="row">
             <div class="label">Mass (kg)</div>
             <div style="flex:1"><input id="massRange" type="range" min="1e6" max="1e13" step="1" value="1e9"></div>
             <div class="value" id="massVal">1,000,000,000</div>
+            <div class="tooltip">Asteroid mass, affecting impact energy.</div>
           </div>
           <div class="row">
             <div class="label">Speed (m/s)</div>
             <div style="flex:1"><input id="speedRange" type="range" min="5000" max="50000" step="100" value="20000"></div>
             <div class="value" id="speedVal">20,000</div>
+            <div class="tooltip">Velocity relative to Earth, in meters per second.</div>
           </div>
           <div class="row">
             <div class="label">Angle (°)</div>
             <div style="flex:1"><input id="angleRange" type="range" min="0" max="90" step="1" value="45"></div>
             <div class="value" id="angleVal">45°</div>
+            <div class="tooltip">Impact angle from vertical; affects crater size.</div>
           </div>
           <div class="row">
             <div class="label">Density (kg/m³)</div>
             <div style="flex:1"><input id="densityRange" type="range" min="1000" max="8000" step="100" value="3000"></div>
             <div class="value" id="densityVal">3,000</div>
+            <div class="tooltip">Material density, e.g., 3000 for rocky asteroids.</div>
           </div>
           <div class="row">
             <div class="label">Latitude</div>
             <div style="flex:1"><input id="latRange" type="range" min="-90" max="90" step="0.0001" value="0"></div>
             <div class="value" id="latVal">0.0000°</div>
+            <div class="tooltip">Impact latitude; click globe to set.</div>
           </div>
           <div class="row">
             <div class="label">Longitude</div>
             <div style="flex:1"><input id="lngRange" type="range" min="-180" max="180" step="0.0001" value="0"></div>
             <div class="value" id="lngVal">0.0000°</div>
+            <div class="tooltip">Impact longitude; click globe to set.</div>
           </div>
           <div class="row">
-            <div class="label">Deflect (%)</div>
-            <div style="flex:1"><input id="deflectRange" type="range" min="0" max="90" step="1" value="0"></div>
-            <div class="value" id="deflectVal">0%</div>
+            <div class="label">Deflect Δv (m/s)</div>
+            <div style="flex:1"><input id="deflectRange" type="range" min="0" max="1000" step="10" value="0"></div>
+            <div class="value" id="deflectVal">0</div>
+            <div class="tooltip">Velocity change from mitigation (e.g., kinetic impactor).</div>
           </div>
           <div class="row">
             <div class="label">Fragment (%)</div>
             <div style="flex:1"><input id="fragRange" type="range" min="0" max="90" step="1" value="0"></div>
             <div class="value" id="fragVal">0%</div>
+            <div class="tooltip">Mass lost to fragmentation in atmosphere.</div>
           </div>
           <div class="buttons" style="margin-top:6px">
             <button id="simulateBtn">Simulate Impact</button>
+            <button id="defendBtn">Defend Earth</button>
             <button id="resetBtn" class="secondary">Reset</button>
             <button id="animateBtn" class="secondary">Animate Fall</button>
+            <button id="impactor2025Btn" class="secondary">Impactor-2025</button>
           </div>
         </div>
       </div>
@@ -395,15 +433,16 @@
         <div class="muted-small" style="margin-top:8px">Fetches near-Earth objects from NASA's API. Select one to auto-set mass, speed, and density based on real data (hypothetical impact).</div>
       </div>
       <div class="card outputs">
-        <div class="output"><strong>Asteroid diameter:</strong> <span id="astDia">—</span> m</div>
-        <div class="output"><strong>Kinetic energy:</strong> <span id="keVal">—</span> J (<span id="keSci">—</span>)</div>
-        <div class="output"><strong>Airburst altitude:</strong> <span id="airburstVal">—</span> km</div>
-        <div class="output"><strong>Crater diameter:</strong> <span id="craterVal">—</span> km</div>
-        <div class="output"><strong>Blast radii (Severe/Heavy/Mod/Mild):</strong> <span id="radiiVal">—</span> km</div>
-        <div class="output"><strong>Thermal radiation radius:</strong> <span id="thermalVal">—</span> km</div>
-        <div class="output"><strong>Seismic magnitude:</strong> <span id="seismicVal">—</span></div>
-        <div class="output"><strong>Affected population:</strong> <span id="popAffected">—</span></div>
-        <div class="output"><strong>Estimated fatalities:</strong> <span id="fatalitiesVal">—</span></div>
+        <div class="output"><strong>Asteroid diameter:</strong> <span id="astDia">—</span> m<div class="tooltip">Estimated diameter based on mass and density.</div></div>
+        <div class="output"><strong>Kinetic energy:</strong> <span id="keVal">—</span> J (<span id="keSci">—</span>)<div class="tooltip">Energy of impact, compared to TNT equivalent.</div></div>
+        <div class="output"><strong>Airburst altitude:</strong> <span id="airburstVal">—</span> km<div class="tooltip">Altitude where small asteroids disintegrate.</div></div>
+        <div class="output"><strong>Crater diameter:</strong> <span id="craterVal">—</span> km<div class="tooltip">Size of impact crater, based on energy.</div></div>
+        <div class="output"><strong>Blast radii (Severe/Heavy/Mod/Mild):</strong> <span id="radiiVal">—</span> km<div class="tooltip">Damage zones from blast wave.</div></div>
+        <div class="output"><strong>Thermal radiation radius:</strong> <span id="thermalVal">—</span> km<div class="tooltip">Area affected by heat from impact.</div></div>
+        <div class="output"><strong>Seismic magnitude:</strong> <span id="seismicVal">—</span><div class="tooltip">Earthquake strength from impact, adjusted for seismic zone.</div></div>
+        <div class="output"><strong>Tsunami risk:</strong> <span id="tsunamiVal">—</span><div class="tooltip">Likelihood of tsunami if impact is in ocean.</div></div>
+        <div class="output"><strong>Affected population:</strong> <span id="popAffected">—</span><div class="tooltip">Estimated people in blast zones.</div></div>
+        <div class="output"><strong>Estimated fatalities:</strong> <span id="fatalitiesVal">—</span><div class="tooltip">Estimated deaths based on blast severity.</div></div>
         <div class="output" id="warningBox" style="display:none;background:linear-gradient(90deg,#3b0832, #6b1b43);color:#fff">⚠️ <span id="warningText"></span></div>
         <div class="muted-small" id="popNote">Population estimated using country-average density. Click the globe to simulate and fetch local country data.</div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
@@ -412,11 +451,12 @@
             <div class="sw orange" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Heavy</div>
             <div class="sw yellow" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Moderate</div>
             <div class="sw mild" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Mild</div>
+            <div class="sw blue" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Tsunami</div>
           </div>
         </div>
       </div>
       <div class="card" style="text-align:center;font-size:13px;color:var(--muted)">
-        Tip: drag sliders — simulation updates instantly. Click/rotate/zoom the globe to explore.
+        Tip: drag sliders — simulation updates instantly. Click/rotate/zoom the globe to explore. Try "Defend Earth" to test mitigation!
       </div>
     </div>
   </div>
@@ -431,6 +471,79 @@
   </script>
 
   <script>
+    // Web Worker for heavy calculations
+    const worker = new Worker(URL.createObjectURL(new Blob([`
+      self.onmessage = function(e) {
+        const { mass, speed, angle, density, deflect } = e.data;
+        function computeAsteroidDiameter(massKg, density) {
+          const vol = massKg / density;
+          const radius = Math.cbrt((3 * vol) / (4 * Math.PI));
+          return 2 * radius;
+        }
+        function computeKE(massKg, speedMs) {
+          return 0.5 * massKg * speedMs * speedMs;
+        }
+        function estimateCraterDiameterKm(keJ, angleDeg) {
+          const angleFactor = Math.sin(angleDeg * Math.PI / 180);
+          const effectiveKE = keJ * angleFactor;
+          const C = 0.2;
+          const D_m = C * Math.pow(effectiveKE, 0.25);
+          return D_m / 1000;
+        }
+        function estimateAirburstAltitude(diameter_m, speedMs, angleDeg, density) {
+          const baseAltitude = 50;
+          const sizeFactor = Math.min(25 / diameter_m, 2);
+          const speedFactor = Math.min(12000 / speedMs, 1.5);
+          const angleFactor = angleDeg / 90;
+          const densityFactor = Math.min(2000 / density, 1.5);
+          const altitude = baseAltitude * (0.5 * sizeFactor + 0.3 * speedFactor + 0.1 * angleFactor + 0.1 * densityFactor);
+          return Math.min(Math.max(altitude, 10), 100);
+        }
+        function estimateThermalRadiusKm(keJ) {
+          const C_thermal = 0.05;
+          const R_m = C_thermal * Math.pow(keJ, 1/3);
+          return R_m / 1000;
+        }
+        function estimateSeismicMagnitude(keJ, seismicZoneFactor) {
+          const logE = Math.log10(keJ);
+          const M = (logE - 4.8) / 1.5;
+          return Math.max(0, Math.min(M * seismicZoneFactor, 12));
+        }
+        function checkAtmosphericDisintegration(diameter_m, speedMs, angleDeg, density) {
+          return (
+            diameter_m < 25 &&
+            (angleDeg > 60 || speedMs < 12000 || density < 2000)
+          );
+        }
+        const effectiveSpeed = speed * (1 - deflect / 1000);
+        const effectiveMass = mass;
+        const diameter_m = computeAsteroidDiameter(effectiveMass, density);
+        const ke = computeKE(effectiveMass, effectiveSpeed);
+        const disintegrates = checkAtmosphericDisintegration(diameter_m, effectiveSpeed, angle, density);
+        let result;
+        if (disintegrates) {
+          const airburst_km = estimateAirburstAltitude(diameter_m, effectiveSpeed, angle, density);
+          result = {
+            diameter_m, ke, airburst_km, crater_km: 0, severe_km: 0, heavy_km: 0,
+            moderate_km: 0, mild_km: 0, thermal_km: 0, seismic_mag: 0, disintegrates: true
+          };
+        } else {
+          const crater_km = estimateCraterDiameterKm(ke, angle);
+          const severe_km = Math.max(0.5, crater_km * 0.6);
+          const heavy_km = Math.max(severe_km * 1.8, crater_km * 2.0);
+          const moderate_km = Math.max(heavy_km * 1.9, crater_km * 5.0);
+          const mild_km = Math.max(moderate_km * 2.2, crater_km * 12.0);
+          const thermal_km = estimateThermalRadiusKm(ke);
+          const seismic_mag = estimateSeismicMagnitude(ke, 1); // Default seismic factor
+          result = {
+            diameter_m, ke, airburst_km: 0, crater_km, severe_km, heavy_km,
+            moderate_km, mild_km, thermal_km, seismic_mag, disintegrates: false
+          };
+        }
+        self.postMessage(result);
+      };
+    `], { type: 'text/javascript' })));
+
     // Excel/CSV handling
     var gk_isXlsx = false;
     var gk_xlsxFileLookup = {};
@@ -490,10 +603,9 @@
       // Detect mobile and auto-show controls
       if (window.innerWidth <= 920) {
         controls.classList.add('visible');
-        toggleBtn.style.display = 'none'; // Hide toggle on mobile
-        controls.style.maxHeight = 'none'; // Full expansion on mobile
+        toggleBtn.style.display = 'none';
+        controls.style.maxHeight = 'none';
       } else {
-        // Initialize as visible on desktop
         controls.classList.add('visible');
         toggleBtn.textContent = '▼';
       }
@@ -528,7 +640,6 @@
           sceneMode: Cesium.SceneMode.SCENE3D,
         });
 
-        // Explicitly set canvas size to match container
         const container = viewer.container;
         const canvas = viewer.scene.canvas;
         canvas.style.width = '100%';
@@ -538,17 +649,14 @@
         viewer.resize();
         viewer.scene.requestRender();
 
-        // Hide loading overlay
         const loadingOverlay = document.getElementById('loadingOverlay');
         loadingOverlay.style.display = 'none';
 
-        // Constrain camera to prevent excessive zoom-out and ensure centering
         viewer.scene.screenSpaceCameraController.maximumZoomDistance = 25000000;
         viewer.scene.screenSpaceCameraController.minimumZoomDistance = 1000;
         viewer.scene.screenSpaceCameraController.enableTilt = false;
 
-        // Set initial view to center Earth, adjusted for device size
-        const initialZoomHeight = window.innerWidth <= 920 ? 10000000 : 20000000; // Closer view on smaller devices for better usability
+        const initialZoomHeight = window.innerWidth <= 920 ? 10000000 : 20000000;
         viewer.camera.setView({
           destination: Cesium.Cartesian3.fromDegrees(0, 0, initialZoomHeight),
           orientation: {
@@ -560,7 +668,6 @@
 
         viewer.scene.globe.enableLighting = true;
 
-        // Load 3D tileset
         if (ionToken) {
           try {
             console.log('Attempting to load 3D tileset (ID: 3830185)...');
@@ -580,7 +687,6 @@
           }
         }
 
-        // Dynamic canvas resize handler
         function syncCanvasSize() {
           const rect = container.getBoundingClientRect();
           if (canvas.width !== rect.width || canvas.height !== rect.height) {
@@ -594,7 +700,6 @@
         }
         requestAnimationFrame(syncCanvasSize);
 
-        // Handle zoom events to recenter
         viewer.camera.moveEnd.addEventListener(() => {
           const cartographic = viewer.camera.positionCartographic;
           const height = cartographic.height;
@@ -617,8 +722,8 @@
       const viewer = await initializeViewer();
       const impactEntities = [];
       let trajectoryEntity = null;
+      let deflectedTrajectoryEntity = null;
 
-      // Resize handler for window changes
       window.addEventListener('resize', () => {
         const container = viewer.container;
         const canvas = viewer.scene.canvas;
@@ -630,7 +735,6 @@
           viewer.resize();
           viewer.scene.requestRender();
         }
-        // Re-toggle controls on resize to adapt
         if (window.innerWidth <= 920 && !controls.classList.contains('visible')) {
           controls.classList.add('visible');
         }
@@ -667,7 +771,7 @@
       const fragR = $('fragRange'), fragV = $('fragVal');
       const astDiaEl = $('astDia'), keValEl = $('keVal'), keSciEl = $('keSci');
       const airburstEl = $('airburstVal'), craterEl = $('craterVal'), radiiEl = $('radiiVal');
-      const thermalEl = $('thermalVal'), seismicEl = $('seismicVal');
+      const thermalEl = $('thermalVal'), seismicEl = $('seismicVal'), tsunamiEl = $('tsunamiVal');
       const popAffectedEl = $('popAffected'), fatalitiesEl = $('fatalitiesVal');
       const warnBox = $('warningBox'), warnText = $('warningText');
       const popNote = $('popNote');
@@ -679,87 +783,72 @@
         densityV.textContent = fmt(densityR.value);
         latV.textContent = Number(latR.value).toFixed(4) + '°';
         lngV.textContent = Number(lngR.value).toFixed(4) + '°';
-        defV.textContent = defR.value + '%';
+        defV.textContent = fmt(defR.value);
         fragV.textContent = fragR.value + '%';
       }
       [massR, speedR, angleR, densityR, latR, lngR, defR, fragR].forEach(el => el.addEventListener('input', updateDisplays));
       updateDisplays();
 
-      // --- Physics ---
-      function computeAsteroidDiameter(massKg, density) {
-        const vol = massKg / density;
-        const radius = Math.cbrt((3 * vol) / (4 * Math.PI));
-        return 2 * radius;
-      }
-
-      function computeKE(massKg, speedMs) {
-        return 0.5 * massKg * speedMs * speedMs;
-      }
-
-      function estimateCraterDiameterKm(keJ, angleDeg) {
-        const angleFactor = Math.sin(angleDeg * Math.PI / 180);
-        const effectiveKE = keJ * angleFactor;
-        const C = 0.2;
-        const D_m = C * Math.pow(effectiveKE, 0.25);
-        return D_m / 1000;
-      }
-
-      function estimateAirburstAltitude(diameter_m, speedMs, angleDeg, density) {
-        const baseAltitude = 50;
-        const sizeFactor = Math.min(25 / diameter_m, 2);
-        const speedFactor = Math.min(12000 / speedMs, 1.5);
-        const angleFactor = angleDeg / 90;
-        const densityFactor = Math.min(2000 / density, 1.5);
-        const altitude = baseAltitude * (0.5 * sizeFactor + 0.3 * speedFactor + 0.1 * angleFactor + 0.1 * densityFactor);
-        return Math.min(Math.max(altitude, 10), 100);
-      }
-
-      function estimateThermalRadiusKm(keJ) {
-        const C_thermal = 0.05;
-        const R_m = C_thermal * Math.pow(keJ, 1/3);
-        return R_m / 1000;
-      }
-
-      function estimateSeismicMagnitude(keJ) {
-        const logE = Math.log10(keJ);
-        const M = (logE - 4.8) / 1.5;
-        return Math.max(0, Math.min(M, 12));
-      }
-
-      function checkAtmosphericDisintegration(diameter_m, speedMs, angleDeg, density) {
-        return (
-          diameter_m < 25 &&
-          (angleDeg > 60 || speedMs < 12000 || density < 2000)
-        );
-      }
-
-      function computeImpact(massKg, speedMs, angleDeg, density, deflectPct, fragPct) {
-        const effectiveSpeed = speedMs * (1 - deflectPct / 100);
-        const effectiveMass = massKg * (1 - fragPct / 100);
-        const diameter_m = computeAsteroidDiameter(effectiveMass, density);
-        const ke = computeKE(effectiveMass, effectiveSpeed);
-        const disintegrates = checkAtmosphericDisintegration(diameter_m, effectiveSpeed, angleDeg, density);
-
-        if (disintegrates) {
-          const airburst_km = estimateAirburstAltitude(diameter_m, effectiveSpeed, angleDeg, density);
-          return {
-            diameter_m, ke, airburst_km, crater_km: 0, severe_km: 0, heavy_km: 0,
-            moderate_km: 0, mild_km: 0, thermal_km: 0, seismic_mag: 0, disintegrates: true
-          };
+      // --- USGS Data Integration ---
+      async function fetchUSGSElevation(lat, lng) {
+        try {
+          const url = `https://epqs.nationalmap.gov/v1/json?x=${encodeURIComponent(lng)}&y=${encodeURIComponent(lat)}&units=Meters&output=json`;
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('USGS elevation fetch failed');
+          const data = await res.json();
+          return data.value || 0; // Elevation in meters
+        } catch (e) {
+          console.warn('USGS elevation fetch error:', e);
+          return 0;
         }
+      }
 
-        const crater_km = estimateCraterDiameterKm(ke, angleDeg);
-        const severe_km = Math.max(0.5, crater_km * 0.6);
-        const heavy_km = Math.max(severe_km * 1.8, crater_km * 2.0);
-        const moderate_km = Math.max(heavy_km * 1.9, crater_km * 5.0);
-        const mild_km = Math.max(moderate_km * 2.2, crater_km * 12.0);
-        const thermal_km = estimateThermalRadiusKm(ke);
-        const seismic_mag = estimateSeismicMagnitude(ke);
+      async function fetchUSGSSeismicZone(lat, lng) {
+        try {
+          const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lng)}&maxradiuskm=100`;
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('USGS seismic zone fetch failed');
+          const data = await res.json();
+          const seismicActivity = data.features.length > 0 ? 1.2 : 1.0; // Increase magnitude in active zones
+          return seismicActivity;
+        } catch (e) {
+          console.warn('USGS seismic zone fetch error:', e);
+          return 1.0; // Default factor
+        }
+      }
 
-        return {
-          diameter_m, ke, airburst_km: 0, crater_km, severe_km, heavy_km,
-          moderate_km, mild_km, thermal_km, seismic_mag, disintegrates: false
+      async function estimateTsunamiRisk(lat, lng, elevation, ke) {
+        if (elevation >= 0) return { risk: 'None', waveHeight: 0 };
+        const distanceToCoast = await estimateDistanceToCoast(lat, lng);
+        const keMt = ke / 4.184e15; // Megatons TNT
+        const waveHeight = keMt > 10 ? Math.min(keMt * 0.1, 50) : 0; // Simplified: 0.1m per megaton, capped at 50m
+        if (distanceToCoast < 100 && waveHeight > 0) {
+          return { risk: 'High', waveHeight: waveHeight.toFixed(1) };
+        } else if (distanceToCoast < 500 && waveHeight > 0) {
+          return { risk: 'Moderate', waveHeight: waveHeight.toFixed(1) };
+        }
+        return { risk: 'Low', waveHeight: 0 };
+      }
+
+      async function estimateDistanceToCoast(lat, lng) {
+        try {
+          const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=10&addressdetails=1`;
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('Coast distance fetch failed');
+          const data = await res.json();
+          return data.address && data.address.coastline ? 10 : 500; // Simplified: assume near coast if tagged
+        } catch (e) {
+          console.warn('Coast distance fetch error:', e);
+          return 500; // Default far from coast
+        }
+      }
+
+      // --- Physics (Moved to Worker) ---
+      function computeImpact(massKg, speedMs, angleDeg, density, deflect, seismicZoneFactor, callback) {
+        worker.onmessage = (e) => {
+          callback(e.data);
         };
+        worker.postMessage({ mass: massKg, speed: speedMs, angle: angleDeg, density, deflect });
       }
 
       // --- Population Estimation ---
@@ -845,6 +934,10 @@
           viewer.entities.remove(trajectoryEntity);
           trajectoryEntity = null;
         }
+        if (deflectedTrajectoryEntity) {
+          viewer.entities.remove(deflectedTrajectoryEntity);
+          deflectedTrajectoryEntity = null;
+        }
         warnBox.style.display = 'none';
         astDiaEl.textContent = '—';
         keValEl.textContent = '—';
@@ -854,6 +947,7 @@
         radiiEl.textContent = '—';
         thermalEl.textContent = '—';
         seismicEl.textContent = '—';
+        tsunamiEl.textContent = '—';
         popAffectedEl.textContent = '—';
         fatalitiesEl.textContent = '—';
         popNote.textContent = 'Population estimated using country-average density. Click the globe to simulate and fetch local country data.';
@@ -884,7 +978,7 @@
         return entity;
       }
 
-      async function drawImpact(lat, lng, result) {
+      async function drawImpact(lat, lng, result, elevation, tsunamiRisk) {
         clearImpact();
         if (result.disintegrates) {
           warnBox.style.display = 'block';
@@ -897,6 +991,7 @@
           radiiEl.textContent = '0 / 0 / 0 / 0';
           thermalEl.textContent = '0';
           seismicEl.textContent = '0';
+          tsunamiEl.textContent = 'None';
           popAffectedEl.textContent = '0';
           fatalitiesEl.textContent = '0';
           popNote.textContent = 'No population affected due to atmospheric disintegration.';
@@ -921,6 +1016,11 @@
         const severeEllipse = createEllipse(lng, lat, result.severe_km, '#ff4444', 0.35, 'Severe');
         impactEntities.push(mildEllipse, moderateEllipse, heavyEllipse, severeEllipse);
 
+        if (tsunamiRisk.risk !== 'None') {
+          const tsunamiEllipse = createEllipse(lng, lat, Math.min(result.mild_km * 2, 100), '#1e90ff', 0.1, 'Tsunami');
+          impactEntities.push(tsunamiEllipse);
+        }
+
         viewer.camera.flyTo({
           destination: Cesium.Cartesian3.fromDegrees(lng, lat, 10000),
           orientation: {
@@ -942,6 +1042,7 @@
         radiiEl.textContent = `${fmtFixed(result.severe_km, 2)} / ${fmtFixed(result.heavy_km, 2)} / ${fmtFixed(result.moderate_km, 2)} / ${fmtFixed(result.mild_km, 2)}`;
         thermalEl.textContent = fmtFixed(result.thermal_km, 2);
         seismicEl.textContent = fmtFixed(result.seismic_mag, 1);
+        tsunamiEl.textContent = `${tsunamiRisk.risk} (${tsunamiRisk.waveHeight} m waves)`;
 
         popNote.textContent = 'Estimating population — fetching country data...';
         try {
@@ -1063,7 +1164,7 @@
       // --- Simulation ---
       const debouncedSimulate = debounce((animate = false) => simulate(animate), 80);
 
-      function simulate(animate = false) {
+      async function simulate(animate = false) {
         try {
           const mass = Number(massR.value);
           const speed = Number(speedR.value);
@@ -1074,36 +1175,33 @@
           const def = Number(defR.value);
           const frag = Number(fragR.value);
 
-          const res = computeImpact(mass, speed, angle, density, def, frag);
+          const elevation = await fetchUSGSElevation(lat, lng);
+          const seismicZoneFactor = await fetchUSGSSeismicZone(lat, lng);
+          const tsunamiRisk = await estimateTsunamiRisk(lat, lng, elevation, computeKE(mass, speed));
 
-          astDiaEl.textContent = fmtFixed(res.diameter_m, 1);
-          keValEl.textContent = fmt(parseFloat(res.ke.toFixed(0)));
-          keSciEl.textContent = fmtSci(res.ke);
-          airburstEl.textContent = res.disintegrates ? fmtFixed(res.airburst_km, 1) : '0';
-          craterEl.textContent = res.disintegrates ? '0' : fmtFixed(res.crater_km, 2);
-          radiiEl.textContent = res.disintegrates ? '0 / 0 / 0 / 0' : `${fmtFixed(res.severe_km, 2)} / ${fmtFixed(res.heavy_km, 2)} / ${fmtFixed(res.moderate_km, 2)} / ${fmtFixed(res.mild_km, 2)}`;
-          thermalEl.textContent = res.disintegrates ? '0' : fmtFixed(res.thermal_km, 2);
-          seismicEl.textContent = res.disintegrates ? '0' : fmtFixed(res.seismic_mag, 1);
+          computeImpact(mass, speed, angle, density, def, seismicZoneFactor, (result) => {
+            result.seismic_mag = result.disintegrates ? 0 : estimateSeismicMagnitude(result.ke, seismicZoneFactor);
 
-          const megatons = res.ke / 4.184e15;
-          if (res.disintegrates) {
-            warnBox.style.display = 'block';
-            warnText.textContent = `Meteor disintegrates in atmosphere at ~${fmtFixed(res.airburst_km, 1)} km altitude — no ground impact.`;
-          } else if (megatons > 1000) {
-            warnText.textContent = `Extreme energy: ~${Math.round(megatons).toLocaleString()} megatons — global catastrophic potential.`;
-            warnBox.style.display = 'block';
-          } else if (megatons > 10) {
-            warnText.textContent = `Large impact: ~${Math.round(megatons).toLocaleString()} megatons — regional devastation.`;
-            warnBox.style.display = 'block';
-          } else {
-            warnBox.style.display = 'none';
-          }
+            const megatons = result.ke / 4.184e15;
+            if (result.disintegrates) {
+              warnBox.style.display = 'block';
+              warnText.textContent = `Meteor disintegrates in atmosphere at ~${fmtFixed(result.airburst_km, 1)} km altitude — no ground impact.`;
+            } else if (megatons > 1000) {
+              warnText.textContent = `Extreme energy: ~${Math.round(megatons).toLocaleString()} megatons — global catastrophic potential.`;
+              warnBox.style.display = 'block';
+            } else if (megatons > 10) {
+              warnText.textContent = `Large impact: ~${Math.round(megatons).toLocaleString()} megatons — regional devastation.`;
+              warnBox.style.display = 'block';
+            } else {
+              warnBox.style.display = 'none';
+            }
 
-          if (animate) {
-            animateFallTo(lat, lng, () => drawImpact(lat, lng, res));
-          } else {
-            drawImpact(lat, lng, res);
-          }
+            if (animate) {
+              animateFallTo(lat, lng, () => drawImpact(lat, lng, result, elevation, tsunamiRisk));
+            } else {
+              drawImpact(lat, lng, result, elevation, tsunamiRisk);
+            }
+          });
         } catch (e) {
           console.error('Simulation error:', e);
           warnBox.style.display = 'block';
@@ -1141,11 +1239,30 @@
               vel: neo.close_approach_data[0].relative_velocity.kilometers_per_second,
               close_date: neo.close_approach_data[0].close_approach_date,
               miss_km: neo.close_approach_data[0].miss_distance.kilometers,
-              density: 3000
+              density: 3000,
+              semi_major_axis: neo.orbital_data?.semi_major_axis || 1.5, // AU, fallback
+              eccentricity: neo.orbital_data?.eccentricity || 0.4 // Fallback
             });
             opt.textContent = `${neo.name} (Close Approach: ${neo.close_approach_data[0].close_approach_date})`;
             sel.appendChild(opt);
           });
+          // Add Impactor-2025 preset
+          const impactor2025 = {
+            name: 'Impactor-2025',
+            designation: '2025-IMP',
+            dia_min: 180,
+            dia_max: 220,
+            vel: 25,
+            close_date: '2025-10-05',
+            miss_km: 10000,
+            density: 3000,
+            semi_major_axis: 1.2,
+            eccentricity: 0.5
+          };
+          const opt = document.createElement('option');
+          opt.value = JSON.stringify(impactor2025);
+          opt.textContent = 'Impactor-2025 (Hypothetical, Oct 2025)';
+          sel.appendChild(opt);
           if (neos.length === 0) {
             sel.innerHTML += '<option value="">No NEOs found in the next week</option>';
           }
@@ -1155,101 +1272,201 @@
         }
       }
 
-      // --- Fetch and Plot Trajectory using JPL Horizons API ---
-      async function plotTrajectory(designation, closeDate, missKm) {
+      // --- Orbital Mechanics and Trajectory ---
+      function keplerToCartesian(a, e, trueAnomaly, mu = 1.327e20) { // mu = Sun's gravitational parameter
+        const r = (a * (1 - e * e)) / (1 + e * Math.cos(trueAnomaly));
+        const x = r * Math.cos(trueAnomaly);
+        const y = r * Math.sin(trueAnomaly);
+        return new Cesium.Cartesian3(x, y, 0);
+      }
+
+      async function plotTrajectory(designation, closeDate, missKm, semiMajorAxis, eccentricity, deltaV = 0) {
         if (trajectoryEntity) {
           viewer.entities.remove(trajectoryEntity);
           trajectoryEntity = null;
         }
+        if (deflectedTrajectoryEntity) {
+          viewer.entities.remove(deflectedTrajectoryEntity);
+          deflectedTrajectoryEntity = null;
+        }
+
         const start = new Date(closeDate);
         start.setDate(start.getDate() - 2);
         const stop = new Date(closeDate);
         stop.setDate(stop.getDate() + 2);
         const startStr = start.toISOString().split('T')[0];
         const stopStr = stop.toISOString().split('T')[0];
-        const step = '1h';
-        const url = `https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='DES=${encodeURIComponent(designation)};'&OBJ_DATA='NO'&MAKE_EPHEM='YES'&EPHEM_TYPE='VECTORS'&CENTER='500'&START_TIME='${startStr}'&STOP_TIME='${stopStr}'&STEP_SIZE='${step}'&OUT_UNITS='KM-S'&REF_SYSTEM='J2000'&VEC_LABELS='NO'&VEC_DELTA='NO'&CSV_FORMAT='YES'&VEC_TABLE='3'`;
-        try {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error('Horizons API fetch failed');
-          const data = await res.json();
-          const text = data.result;
-          const soeIndex = text.indexOf('$$SOE');
-          const eoeIndex = text.indexOf('$$EOE');
-          if (soeIndex === -1 || eoeIndex === -1) throw new Error('No ephemeris data found');
-          const ephemText = text.substring(soeIndex + 5, eoeIndex).trim();
-          const lines = ephemText.split('\n');
-          const positions = [];
-          const times = [];
-          const distances = [];
-          for (let line of lines) {
-            if (line.trim() === '') continue;
-            const parts = line.split(',').map(s => s.trim());
-            const jd = parseFloat(parts[0]);
-            const x = parseFloat(parts[2]) * 1000; // km to m
-            const y = parseFloat(parts[3]) * 1000;
-            const z = parseFloat(parts[4]) * 1000;
-            const time = Cesium.JulianDate.fromJd(jd, Cesium.TimeStandard.UTC);
-            const inertialPos = new Cesium.Cartesian3(x, y, z);
-            const pm = new Cesium.Matrix3();
-            Cesium.Transforms.computeIcrfToFixedMatrix(time, pm);
-            let fixedPos;
-            if (pm) {
-              fixedPos = Cesium.Matrix3.multiplyByVector(pm, inertialPos, new Cesium.Cartesian3());
-            } else {
-              fixedPos = inertialPos; // Fallback
-            }
-            times.push(time);
-            positions.push(fixedPos);
-            distances.push(Cesium.Cartesian3.magnitude(fixedPos) / 1000); // km
+
+        // Try Keplerian orbit first
+        const positions = [];
+        const times = [];
+        const distances = [];
+        const steps = 48; // 1h steps over 2 days
+        for (let i = 0; i <= steps; i++) {
+          const trueAnomaly = (i / steps) * 2 * Math.PI;
+          let pos = keplerToCartesian(semiMajorAxis * 1.496e11, eccentricity, trueAnomaly); // AU to meters
+          if (deltaV) {
+            const deflectedA = semiMajorAxis * (1 + deltaV / 1000); // Simplified deflection
+            pos = keplerToCartesian(deflectedA * 1.496e11, eccentricity, trueAnomaly);
           }
-          if (positions.length === 0) throw new Error('No positions parsed');
-          trajectoryEntity = viewer.entities.add({
+          const time = Cesium.JulianDate.fromDate(new Date(start.getTime() + i * 3600 * 1000));
+          times.push(time);
+          positions.push(pos);
+          distances.push(Cesium.Cartesian3.magnitude(pos) / 1000);
+        }
+
+        // Fallback to JPL Horizons if Keplerian fails
+        if (positions.length === 0) {
+          const url = `https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='DES=${encodeURIComponent(designation)};'&OBJ_DATA='NO'&MAKE_EPHEM='YES'&EPHEM_TYPE='VECTORS'&CENTER='500'&START_TIME='${startStr}'&STOP_TIME='${stopStr}'&STEP_SIZE='1h'&OUT_UNITS='KM-S'&REF_SYSTEM='J2000'&VEC_LABELS='NO'&VEC_DELTA='NO'&CSV_FORMAT='YES'&VEC_TABLE='3'`;
+          try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Horizons API fetch failed');
+            const data = await res.json();
+            const text = data.result;
+            const soeIndex = text.indexOf('$$SOE');
+            const eoeIndex = text.indexOf('$$EOE');
+            if (soeIndex === -1 || eoeIndex === -1) throw new Error('No ephemeris data found');
+            const ephemText = text.substring(soeIndex + 5, eoeIndex).trim();
+            const lines = ephemText.split('\n');
+            for (let line of lines) {
+              if (line.trim() === '') continue;
+              const parts = line.split(',').map(s => s.trim());
+              const jd = parseFloat(parts[0]);
+              const x = parseFloat(parts[2]) * 1000;
+              const y = parseFloat(parts[3]) * 1000;
+              const z = parseFloat(parts[4]) * 1000;
+              const time = Cesium.JulianDate.fromJd(jd, Cesium.TimeStandard.UTC);
+              const inertialPos = new Cesium.Cartesian3(x, y, z);
+              const pm = new Cesium.Matrix3();
+              Cesium.Transforms.computeIcrfToFixedMatrix(time, pm);
+              let fixedPos = pm ? Cesium.Matrix3.multiplyByVector(pm, inertialPos, new Cesium.Cartesian3()) : inertialPos;
+              times.push(time);
+              positions.push(fixedPos);
+              distances.push(Cesium.Cartesian3.magnitude(fixedPos) / 1000);
+            }
+          } catch (e) {
+            console.error('Trajectory fetch error:', e);
+          }
+        }
+
+        if (positions.length === 0) {
+          warnBox.style.display = 'block';
+          warnText.textContent = 'Failed to fetch or plot asteroid trajectory.';
+          return;
+        }
+
+        trajectoryEntity = viewer.entities.add({
+          polyline: {
+            positions: positions,
+            width: 5,
+            material: Cesium.Color.YELLOW.withAlpha(0.8),
+            clampToGround: false
+          }
+        });
+
+        if (deltaV) {
+          const deflectedPositions = [];
+          for (let i = 0; i <= steps; i++) {
+            const trueAnomaly = (i / steps) * 2 * Math.PI;
+            const deflectedA = semiMajorAxis * (1 + deltaV / 1000);
+            const pos = keplerToCartesian(deflectedA * 1.496e11, eccentricity, trueAnomaly);
+            deflectedPositions.push(pos);
+          }
+          deflectedTrajectoryEntity = viewer.entities.add({
             polyline: {
-              positions: positions,
-              width: 5,
-              material: Cesium.Color.YELLOW.withAlpha(0.8),
+              positions: deflectedPositions,
+              width: 3,
+              material: Cesium.Color.GREEN.withAlpha(0.6),
               clampToGround: false
             }
           });
-          // Find closest approach point and set lat/lng
-          let minIndex = 0;
-          let minDist = distances[0];
-          for (let i = 1; i < distances.length; i++) {
-            if (distances[i] < minDist) {
-              minDist = distances[i];
-              minIndex = i;
-            }
-          }
-          const minPos = positions[minIndex];
-          const carto = Cesium.Cartographic.fromCartesian(minPos);
-          latR.value = Cesium.Math.toDegrees(carto.latitude);
-          lngR.value = Cesium.Math.toDegrees(carto.longitude);
-          updateDisplays();
-          // Update warning if actual close distance
-          if (minDist < 6371) {
-            warnBox.style.display = 'block';
-            warnText.textContent = `This NEO has a close approach distance of ~${fmtFixed(minDist, 1)} km — potential impactor!`;
-          }
-          viewer.flyTo(trajectoryEntity);
-          viewer.scene.requestRender();
-        } catch (e) {
-          console.error('Trajectory fetch/plot error:', e);
-          warnBox.style.display = 'block';
-          warnText.textContent = 'Failed to fetch or plot asteroid trajectory.';
         }
+
+        let minIndex = 0;
+        let minDist = distances[0];
+        for (let i = 1; i < distances.length; i++) {
+          if (distances[i] < minDist) {
+            minDist = distances[i];
+            minIndex = i;
+          }
+        }
+        const minPos = positions[minIndex];
+        const carto = Cesium.Cartographic.fromCartesian(minPos);
+        latR.value = Cesium.Math.toDegrees(carto.latitude);
+        lngR.value = Cesium.Math.toDegrees(carto.longitude);
+        updateDisplays();
+
+        if (minDist < 6371 && !deltaV) {
+          warnBox.style.display = 'block';
+          warnText.textContent = `This NEO has a close approach distance of ~${fmtFixed(minDist, 1)} km — potential impactor!`;
+        } else if (deltaV && minDist >= 6371) {
+          warnBox.style.display = 'block';
+          warnText.textContent = `Deflection successful! New miss distance: ~${fmtFixed(minDist, 1)} km.`;
+        }
+        viewer.flyTo(trajectoryEntity);
+        viewer.scene.requestRender();
+      }
+
+      // --- Defend Earth Mode ---
+      async function defendEarth() {
+        const def = Number(defR.value);
+        const d = JSON.parse($('neoSelect').value || '{}');
+        if (!d.designation) {
+          warnBox.style.display = 'block';
+          warnText.textContent = 'Select an NEO to simulate deflection.';
+          return;
+        }
+        await plotTrajectory(d.designation, d.close_date, d.miss_km, d.semi_major_axis, d.eccentricity, def);
+        simulate(false);
+        if (def > 0) {
+          warnBox.style.display = 'block';
+          warnText.textContent = `Deflection applied (Δv = ${def} m/s). Check green trajectory for new path!`;
+        }
+      }
+
+      // --- Impactor-2025 Scenario ---
+      async function loadImpactor2025() {
+        const impactor2025 = {
+          name: 'Impactor-2025',
+          designation: '2025-IMP',
+          dia_min: 180,
+          dia_max: 220,
+          vel: 25,
+          close_date: '2025-10-05',
+          miss_km: 10000,
+          density: 3000,
+          semi_major_axis: 1.2,
+          eccentricity: 0.5
+        };
+        const avg_dia = (impactor2025.dia_min + impactor2025.dia_max) / 2;
+        const radius = avg_dia / 2;
+        const volume = (4 / 3) * Math.PI * Math.pow(radius, 3);
+        const mass = impactor2025.density * volume;
+        setRangeValue(massR, Math.min(Math.max(mass, 1e6), 1e13));
+        setRangeValue(speedR, Math.min(Math.max(impactor2025.vel * 1000, 5000), 50000));
+        setRangeValue(densityR, impactor2025.density);
+        setRangeValue(angleR, 45);
+        setRangeValue(defR, 0);
+        setRangeValue(fragR, 0);
+        setRangeValue(latR, 37.7749); // Example: San Francisco
+        setRangeValue(lngR, -122.4194);
+        await plotTrajectory(impactor2025.designation, impactor2025.close_date, impactor2025.miss_km, impactor2025.semi_major_axis, impactor2025.eccentricity);
+        simulate(true);
       }
 
       // --- Events ---
       $('simulateBtn').addEventListener('click', () => simulate(false));
       $('resetBtn').addEventListener('click', () => clearImpact());
       $('animateBtn').addEventListener('click', () => simulate(true));
+      $('defendBtn').addEventListener('click', defendEarth);
+      $('impactor2025Btn').addEventListener('click', loadImpactor2025);
       [massR, speedR, angleR, densityR, latR, lngR, defR, fragR].forEach(el => el.addEventListener('input', () => debouncedSimulate(false)));
       simulate(false);
 
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') simulate(false);
         if (e.key === 'r') clearImpact();
+        if (e.key === 'd') defendEarth();
       });
 
       $('fetchNeoBtn').addEventListener('click', fetchNEOs);
@@ -1269,7 +1486,7 @@
         setRangeValue(angleR, 45);
         setRangeValue(defR, 0);
         setRangeValue(fragR, 0);
-        await plotTrajectory(d.designation, d.close_date, d.miss_km);
+        await plotTrajectory(d.designation, d.close_date, d.miss_km, d.semi_major_axis, d.eccentricity);
         simulate(false);
       });
 
@@ -1279,7 +1496,6 @@
         debouncedSimulate(false);
       }
 
-      // Update tileset on token change
       document.getElementById('ionToken').addEventListener('change', async () => {
         await initializeViewer();
         simulate(false);
