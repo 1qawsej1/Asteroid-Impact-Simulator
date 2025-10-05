@@ -38,28 +38,29 @@
       overflow: hidden;
     }
     .app {
-      display: flex;
-      gap: 18px;
       width: 100%;
-      padding: 18px;
-      box-sizing: border-box;
+      height: 100%;
+      position: relative;
       overflow: hidden;
     }
-    .left {
-      flex: 1;
-      min-width: 320px;
-      max-width: 860px;
-      height: calc(100vh - 36px);
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: 0 8px 30px rgba(2,6,23,0.6);
-      position: relative;
+    .globe-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.3s ease-in-out;
+    }
+    .globe-container.shifted {
+      transform: translateX(-210px); /* Half of panel width to keep globe centered */
     }
     #cesiumContainer {
       position: relative;
       width: 100%;
       height: 100%;
       overflow: hidden;
+      border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(2,6,23,0.6);
     }
     #cesiumContainer .cesium-viewer {
       position: absolute !important;
@@ -75,16 +76,39 @@
       height: 100% !important;
       display: block !important;
     }
-    .right {
+    .panel {
+      position: absolute;
+      top: 0;
+      right: -420px; /* Hidden by default */
       width: 420px;
-      max-width: 40%;
-      min-width: 280px;
+      height: 100%;
+      background: var(--card);
+      box-shadow: -6px 0 20px rgba(2,6,23,0.6);
+      transition: right 0.3s ease-in-out;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 18px;
       display: flex;
       flex-direction: column;
       gap: 14px;
-      overflow-y: auto;
-      height: calc(100vh - 36px);
-      -webkit-overflow-scrolling: touch;
+      z-index: 700;
+    }
+    .panel.open {
+      right: 0;
+    }
+    .toggle-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: linear-gradient(180deg, var(--accent), #5b21b6);
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(92,33,182,0.18);
+      z-index: 800;
     }
     .card {
       background: var(--card);
@@ -97,12 +121,6 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.3s ease-in-out;
-    }
-    .controls.visible {
-      max-height: none;
     }
     .row {
       display: flex;
@@ -170,14 +188,6 @@
       box-shadow: none;
       color: var(--muted);
     }
-    .toggle-btn {
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-size: 16px;
-      cursor: pointer;
-      padding: 0 8px;
-    }
     .legend {
       display: flex;
       gap: 8px;
@@ -214,25 +224,12 @@
       background: linear-gradient(90deg, #bfdbfe, #dbeafe80);
     }
     @media (max-width: 920px) {
-      .app {
-        flex-direction: column;
-        padding: 10px;
-        gap: 10px;
-      }
-      .left {
-        max-width: none;
-        height: 60vh;
-        min-height: 300px;
-      }
-      .right {
+      .panel {
         width: 100%;
-        max-width: none;
-        height: auto;
-        overflow-y: visible;
-        gap: 10px;
+        right: -100%;
       }
-      .card {
-        padding: 10px;
+      .globe-container.shifted {
+        transform: translateX(-50%);
       }
       .output strong {
         width: 140px;
@@ -258,17 +255,8 @@
         padding: 8px 12px;
         font-size: 14px;
       }
-      .toggle-btn {
-        display: none;
-      }
     }
     @media (max-width: 480px) {
-      .app {
-        padding: 8px;
-      }
-      .left {
-        height: 50vh;
-      }
       .output strong {
         width: 100%;
         display: block;
@@ -321,14 +309,14 @@
     #toolbar {
       position: absolute;
       top: 10px;
-      right: 10px;
+      right: 60px; /* Adjusted to avoid overlap with toggle button */
       z-index: 500;
     }
   </style>
 </head>
 <body>
   <div class="app">
-    <div class="left card">
+    <div class="globe-container" id="globeContainer">
       <div id="cesiumContainer" class="fullSize"></div>
       <div class="fall-wrap" id="fallWrap" aria-hidden="true"></div>
       <div id="loadingOverlay">
@@ -336,12 +324,10 @@
       </div>
       <div id="toolbar"></div>
     </div>
-    <div class="right">
+    <button id="togglePanel" class="toggle-btn">☰</button>
+    <div class="panel" id="panel">
       <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin: 6px 0 10px 0">
-          <h3 style="margin: 0">Asteroid Impact Simulator</h3>
-          <button id="toggleControls" class="toggle-btn">▼</button>
-        </div>
+        <h3 style="margin: 0">Asteroid Impact Simulator</h3>
         <div class="controls" id="controls">
           <div class="row">
             <div class="label">Mass (kg)</div>
@@ -445,29 +431,22 @@
         return;
       }
 
-      // --- Toggle Controls with Dynamic Height ---
-      const toggleBtn = document.getElementById('toggleControls');
-      const controls = document.getElementById('controls');
-      function toggleControls() {
-        if (controls.classList.contains('visible')) {
-          controls.classList.remove('visible');
-          toggleBtn.textContent = '▶';
+      // --- Toggle Panel ---
+      const toggleBtn = document.getElementById('togglePanel');
+      const panel = document.getElementById('panel');
+      const globeContainer = document.getElementById('globeContainer');
+      function togglePanel() {
+        if (panel.classList.contains('open')) {
+          panel.classList.remove('open');
+          globeContainer.classList.remove('shifted');
+          toggleBtn.textContent = '☰';
         } else {
-          controls.classList.add('visible');
-          toggleBtn.textContent = '▼';
+          panel.classList.add('open');
+          globeContainer.classList.add('shifted');
+          toggleBtn.textContent = '×';
         }
       }
-      toggleBtn.addEventListener('click', toggleControls);
-
-      // Detect mobile and auto-show controls
-      if (window.innerWidth <= 920) {
-        controls.classList.add('visible');
-        toggleBtn.style.display = 'none';
-        controls.style.maxHeight = 'none';
-      } else {
-        controls.classList.add('visible');
-        toggleBtn.textContent = '▼';
-      }
+      toggleBtn.addEventListener('click', togglePanel);
 
       // --- CesiumJS Setup ---
       async function initializeViewer() {
@@ -594,9 +573,6 @@
           viewer.resize();
           viewer.scene.requestRender();
         }
-        if (window.innerWidth <= 920 && !controls.classList.contains('visible')) {
-          controls.classList.add('visible');
-        }
       });
 
       // --- Utilities ---
@@ -696,34 +672,7 @@
         );
       }
 
-      function computeDeflectionParameters(method) {
-        let deflectPct, fragPct, missProbability;
-        switch (method) {
-          case 'kinetic':
-            deflectPct = 15; // Increased deflection due to momentum transfer
-            fragPct = 10; // Moderate fragmentation
-            missProbability = 0.4; // 40% chance of missing populated areas
-            break;
-          case 'nuclear':
-            deflectPct = 25; // Higher deflection but significant fragmentation
-            fragPct = 40; // Increased fragmentation due to explosive energy
-            missProbability = 0.6; // 60% chance of missing populated areas
-            break;
-          case 'gravity':
-            deflectPct = 8; // Lower deflection, minimal fragmentation
-            fragPct = 2; // Very low fragmentation
-            missProbability = 0.3; // 30% chance of missing populated areas
-            break;
-          default:
-            deflectPct = 0;
-            fragPct = 0;
-            missProbability = 0;
-        }
-        return { deflectPct, fragPct, missProbability };
-      }
-
-      function computeImpact(massKg, speedMs, density, method) {
-        const { deflectPct, fragPct, missProbability } = computeDeflectionParameters(method);
+      function computeImpact(massKg, speedMs, density, deflectPct, fragPct) {
         const effectiveSpeed = speedMs * (1 - deflectPct / 100);
         const effectiveMass = massKg * (1 - fragPct / 100);
         const diameter_m = computeAsteroidDiameter(effectiveMass, density);
@@ -734,23 +683,21 @@
           const airburst_km = estimateAirburstAltitude(diameter_m, effectiveSpeed, density);
           return {
             diameter_m, ke, airburst_km, crater_km: 0, severe_km: 0, heavy_km: 0,
-            moderate_km: 0, mild_km: 0, thermal_km: 0, seismic_mag: 0, disintegrates: true,
-            deflectPct, fragPct, missProbability
+            moderate_km: 0, mild_km: 0, thermal_km: 0, seismic_mag: 0, disintegrates: true
           };
         }
 
         const crater_km = estimateCraterDiameterKm(ke);
-        const severe_km = Math.max(0.5, crater_km * 0.6 * (1 - deflectPct / 100));
-        const heavy_km = Math.max(severe_km * 1.8, crater_km * 2.0 * (1 - deflectPct / 100));
-        const moderate_km = Math.max(heavy_km * 1.9, crater_km * 5.0 * (1 - deflectPct / 100));
-        const mild_km = Math.max(moderate_km * 2.2, crater_km * 12.0 * (1 - deflectPct / 100));
+        const severe_km = Math.max(0.5, crater_km * 0.6);
+        const heavy_km = Math.max(severe_km * 1.8, crater_km * 2.0);
+        const moderate_km = Math.max(heavy_km * 1.9, crater_km * 5.0);
+        const mild_km = Math.max(moderate_km * 2.2, crater_km * 12.0);
         const thermal_km = estimateThermalRadiusKm(ke);
         const seismic_mag = estimateSeismicMagnitude(ke);
 
         return {
           diameter_m, ke, airburst_km: 0, crater_km, severe_km, heavy_km,
-          moderate_km, mild_km, thermal_km, seismic_mag, disintegrates: false,
-          deflectPct, fragPct, missProbability
+          moderate_km, mild_km, thermal_km, seismic_mag, disintegrates: false
         };
       }
 
@@ -815,16 +762,15 @@
         }
         const density = densityData && densityData.density ? densityData.density : fallbackDensity;
         const areas = ringAreas(result.severe_km, result.heavy_km, result.moderate_km, result.mild_km);
-        const missFactor = 1 - result.missProbability; // Reduce population impact based on miss probability
-        const pop_severe = areas.A_severe * density * missFactor;
-        const pop_heavy = areas.A_heavy * density * missFactor;
-        const pop_moderate = areas.A_moderate * density * missFactor;
-        const pop_mild = areas.A_mild * density * missFactor;
+        const pop_severe = areas.A_severe * density;
+        const pop_heavy = areas.A_heavy * density;
+        const pop_moderate = areas.A_moderate * density;
+        const pop_mild = areas.A_mild * density;
         const totalAffected = pop_severe + pop_heavy + pop_moderate + pop_mild;
-        const fatal_severe = pop_severe * (0.9 * (1 - result.fragPct / 100)); // Fragmentation reduces fatalities
-        const fatal_heavy = pop_heavy * (0.5 * (1 - result.fragPct / 100));
-        const fatal_moderate = pop_moderate * (0.15 * (1 - result.fragPct / 100));
-        const fatal_mild = pop_mild * (0.02 * (1 - result.fragPct / 100));
+        const fatal_severe = pop_severe * 0.9;
+        const fatal_heavy = pop_heavy * 0.5;
+        const fatal_moderate = pop_moderate * 0.15;
+        const fatal_mild = pop_mild * 0.02;
         const totalFatal = fatal_severe + fatal_heavy + fatal_moderate + fatal_mild;
         return {
           densityData,
@@ -921,8 +867,6 @@
           radiiEl.textContent = '0 / 0 / 0 / 0';
           thermalEl.textContent = '0';
           seismicEl.textContent = '0';
-          deflectedEl.textContent = result.deflectPct;
-          fragmentedEl.textContent = result.fragPct;
           popAffectedEl.textContent = '0';
           fatalitiesEl.textContent = '0';
           popNote.textContent = 'No population affected due to atmospheric disintegration.';
@@ -980,8 +924,6 @@
         radiiEl.textContent = `${fmtFixed(result.severe_km, 2)} / ${fmtFixed(result.heavy_km, 2)} / ${fmtFixed(result.moderate_km, 2)} / ${fmtFixed(result.mild_km, 2)}`;
         thermalEl.textContent = fmtFixed(result.thermal_km, 2);
         seismicEl.textContent = fmtFixed(result.seismic_mag, 1);
-        deflectedEl.textContent = result.deflectPct;
-        fragmentedEl.textContent = result.fragPct;
 
         popNote.textContent = isSea
           ? 'Impact over sea — no population affected.'
@@ -995,9 +937,9 @@
             if (totalAff < 1) popAffectedEl.textContent = '<1';
             if (totalFatal < 1) fatalitiesEl.textContent = '<1';
             if (popEst.densityData && popEst.densityData.name) {
-              popNote.textContent = `Using country-average density for ${popEst.densityData.name} (${Math.round(popEst.densityData.density)} ppl/km²). Deflection may have reduced impact.`;
+              popNote.textContent = `Using country-average density for ${popEst.densityData.name} (${Math.round(popEst.densityData.density)} ppl/km²). This is a coarse estimate.`;
             } else {
-              popNote.textContent = `Using fallback global-average density (${Math.round(popEst.density)} ppl/km²). Deflection may have reduced impact.`;
+              popNote.textContent = `Using fallback global-average density (${Math.round(popEst.density)} ppl/km²). For more accuracy, connect a gridded population dataset.`;
             }
           } else {
             popAffectedEl.textContent = '0';
@@ -1128,7 +1070,6 @@
           let density = Number(densityR.value);
           let lat = Number(latR.value);
           let lng = Number(lngR.value);
-          const method = deflectMethod.value;
 
           // Input validation and defaults
           mass = isFinite(mass) ? mass : 1e9;
@@ -1137,9 +1078,23 @@
           lat = isFinite(lat) ? Math.max(-90, Math.min(90, lat)) : 0;
           lng = isFinite(lng) ? Math.max(-180, Math.min(180, lng)) : 0;
 
-          console.log('Simulation inputs:', { mass, speed, density, lat, lng, method });
+          let deflectPct = 0;
+          let fragPct = 0;
+          const method = deflectMethod.value;
+          if (method === 'kinetic') {
+            deflectPct = 10;
+            fragPct = 5;
+          } else if (method === 'nuclear') {
+            deflectPct = 20;
+            fragPct = 30;
+          } else if (method === 'gravity') {
+            deflectPct = 5;
+            fragPct = 0;
+          }
 
-          const res = computeImpact(mass, speed, density, method);
+          console.log('Simulation inputs:', { mass, speed, density, lat, lng });
+
+          const res = computeImpact(mass, speed, density, deflectPct, fragPct);
 
           astDiaEl.textContent = fmtFixed(res.diameter_m, 1);
           keValEl.textContent = fmt(parseFloat(res.ke.toFixed(0)));
@@ -1149,8 +1104,8 @@
           radiiEl.textContent = res.disintegrates ? '0 / 0 / 0 / 0' : `${fmtFixed(res.severe_km, 2)} / ${fmtFixed(res.heavy_km, 2)} / ${fmtFixed(res.moderate_km, 2)} / ${fmtFixed(res.mild_km, 2)}`;
           thermalEl.textContent = res.disintegrates ? '0' : fmtFixed(res.thermal_km, 2);
           seismicEl.textContent = res.disintegrates ? '0' : fmtFixed(res.seismic_mag, 1);
-          deflectedEl.textContent = res.deflectPct;
-          fragmentedEl.textContent = res.fragPct;
+          deflectedEl.textContent = deflectPct;
+          fragmentedEl.textContent = fragPct;
 
           const megatons = res.ke / 4.184e15;
           if (res.disintegrates) {
