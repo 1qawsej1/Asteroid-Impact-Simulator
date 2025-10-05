@@ -526,7 +526,7 @@
 
         viewer.scene.globe.enableLighting = true;
 
-        // Load 3D tileset (OSM Buildings, ID )
+        // Load 3D tileset (OSM Buildings, ID 380185)
         try {
           console.log('Attempting to load 3D tileset (ID: 380185)...');
           const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(380185);
@@ -801,7 +801,7 @@
           density,
           perZone: {
             severe: { area_km2: areas.A_severe, pop: pop_severe, fatal: fatal_severe },
-            heavy: { area_km2: areas.A_heavy, pop: pop_heavy, fatal: fatal_heavy },
+            heavy: { area_km2: A_heavy, pop: pop_heavy, fatal: fatal_heavy },
             moderate: { area_km2: areas.A_moderate, pop: pop_moderate, fatal: fatal_moderate },
             mild: { area_km2: areas.A_mild, pop: pop_mild, fatal: fatal_mild }
           },
@@ -1102,23 +1102,34 @@
           lat = isFinite(lat) ? Math.max(-90, Math.min(90, lat)) : 0;
           lng = isFinite(lng) ? Math.max(-180, Math.min(180, lng)) : 0;
 
-          let baseDeflect = 0, baseFrag = 0;
+          // Calculate mass scaling factor (logarithmic scaling)
+          // Mass ranges from 1e6 to 1e13 kg; map to scaling factor 1 (smallest) to 0.1 (largest)
+          const logMass = Math.log10(mass);
+          const minLogMass = Math.log10(1e6);
+          const maxLogMass = Math.log10(1e13);
+          const scaleFactor = 1 - 0.9 * (logMass - minLogMass) / (maxLogMass - minLogMass);
+          const massScale = Math.max(0.1, Math.min(1, scaleFactor));
+
+          // Base deflection and fragmentation percentages
+          let deflectPct = 0;
+          let fragPct = 0;
           const method = deflectMethod.value;
           if (method === 'kinetic') {
-            baseDeflect = 10;
-            baseFrag = 5;
+            deflectPct = 10 * massScale;
+            fragPct = 5 * massScale;
           } else if (method === 'nuclear') {
-            baseDeflect = 20;
-            baseFrag = 30;
+            deflectPct = 20 * massScale;
+            fragPct = 30 * massScale;
           } else if (method === 'gravity') {
-            baseDeflect = 5;
-            baseFrag = 0;
+            deflectPct = 5 * massScale;
+            fragPct = 0;
           }
-          const refMass = 1e9;
-          let deflectPct = Math.min(100, baseDeflect * (refMass / mass));
-          let fragPct = Math.min(100, baseFrag * (refMass / mass));
 
-          console.log('Simulation inputs:', { mass, speed, density, lat, lng });
+          // Ensure percentages are within reasonable bounds
+          deflectPct = Math.min(Math.max(deflectPct, 0), 100);
+          fragPct = Math.min(Math.max(fragPct, 0), 100);
+
+          console.log('Simulation inputs:', { mass, speed, density, lat, lng, deflectPct, fragPct, massScale });
 
           const res = computeImpact(mass, speed, density, deflectPct, fragPct);
 
@@ -1130,8 +1141,8 @@
           radiiEl.textContent = res.disintegrates ? '0 / 0 / 0 / 0' : `${fmtFixed(res.severe_km, 2)} / ${fmtFixed(res.heavy_km, 2)} / ${fmtFixed(res.moderate_km, 2)} / ${fmtFixed(res.mild_km, 2)}`;
           thermalEl.textContent = res.disintegrates ? '0' : fmtFixed(res.thermal_km, 2);
           seismicEl.textContent = res.disintegrates ? '0' : fmtFixed(res.seismic_mag, 1);
-          deflectedEl.textContent = fmtFixed(deflectPct, 2);
-          fragmentedEl.textContent = fmtFixed(fragPct, 2);
+          deflectedEl.textContent = fmtFixed(deflectPct, 1);
+          fragmentedEl.textContent = fmtFixed(fragPct, 1);
 
           const megatons = res.ke / 4.184e15;
           if (res.disintegrates) {
