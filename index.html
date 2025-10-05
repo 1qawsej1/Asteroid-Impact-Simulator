@@ -616,6 +616,7 @@
 
       const viewer = await initializeViewer();
       const impactEntities = [];
+      let trajectoryEntity = null;
 
       // Resize handler for window changes
       window.addEventListener('resize', () => {
@@ -840,6 +841,10 @@
       function clearImpact() {
         impactEntities.forEach(entity => viewer.entities.remove(entity));
         impactEntities.length = 0;
+        if (trajectoryEntity) {
+          viewer.entities.remove(trajectoryEntity);
+          trajectoryEntity = null;
+        }
         warnBox.style.display = 'none';
         astDiaEl.textContent = '—';
         keValEl.textContent = '—';
@@ -1130,9 +1135,12 @@
             const opt = document.createElement('option');
             opt.value = JSON.stringify({
               name: neo.name,
+              designation: neo.designation,
               dia_min: neo.estimated_diameter.meters.estimated_diameter_min,
               dia_max: neo.estimated_diameter.meters.estimated_diameter_max,
               vel: neo.close_approach_data[0].relative_velocity.kilometers_per_second,
+              close_date: neo.close_approach_data[0].close_approach_date,
+              miss_km: neo.close_approach_data[0].miss_distance.kilometers,
               density: 3000
             });
             opt.textContent = `${neo.name} (Close Approach: ${neo.close_approach_data[0].close_approach_date})`;
@@ -1144,6 +1152,91 @@
         } catch (e) {
           console.error('NEO fetch error:', e);
           $('neoSelect').innerHTML = '<option value="">Error fetching NEOs</option>';
+        }
+      }
+
+      // --- Fetch and Plot Trajectory using JPL Horizons API ---
+      async function plotTrajectory(designation, closeDate, missKm) {
+        if (trajectoryEntity) {
+          viewer.entities.remove(trajectoryEntity);
+          trajectoryEntity = null;
+        }
+        const start = new Date(closeDate);
+        start.setDate(start.getDate() - 2);
+        const stop = new Date(closeDate);
+        stop.setDate(stop.getDate() + 2);
+        const startStr = start.toISOString().split('T')[0];
+        const stopStr = stop.toISOString().split('T')[0];
+        const step = '1h';
+        const url = `https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='DES=${encodeURIComponent(designation)};'&OBJ_DATA='NO'&MAKE_EPHEM='YES'&EPHEM_TYPE='VECTORS'&CENTER='500'&START_TIME='${startStr}'&STOP_TIME='${stopStr}'&STEP_SIZE='${step}'&OUT_UNITS='KM-S'&REF_SYSTEM='J2000'&VEC_LABELS='NO'&VEC_DELTA='NO'&CSV_FORMAT='YES'&VEC_TABLE='3'`;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('Horizons API fetch failed');
+          const data = await res.json();
+          const text = data.result;
+          const soeIndex = text.indexOf('$$SOE');
+          const eoeIndex = text.indexOf('$$EOE');
+          if (soeIndex === -1 || eoeIndex === -1) throw new Error('No ephemeris data found');
+          const ephemText = text.substring(soeIndex + 5, eoeIndex).trim();
+          const lines = ephemText.split('\n');
+          const positions = [];
+          const times = [];
+          const distances = [];
+          for (let line of lines) {
+            if (line.trim() === '') continue;
+            const parts = line.split(',').map(s => s.trim());
+            const jd = parseFloat(parts[0]);
+            const x = parseFloat(parts[2]) * 1000; // km to m
+            const y = parseFloat(parts[3]) * 1000;
+            const z = parseFloat(parts[4]) * 1000;
+            const time = Cesium.JulianDate.fromJd(jd, Cesium.TimeStandard.UTC);
+            const inertialPos = new Cesium.Cartesian3(x, y, z);
+            const pm = new Cesium.Matrix3();
+            Cesium.Transforms.computeIcrfToFixedMatrix(time, pm);
+            let fixedPos;
+            if (pm) {
+              fixedPos = Cesium.Matrix3.multiplyByVector(pm, inertialPos, new Cesium.Cartesian3());
+            } else {
+              fixedPos = inertialPos; // Fallback
+            }
+            times.push(time);
+            positions.push(fixedPos);
+            distances.push(Cesium.Cartesian3.magnitude(fixedPos) / 1000); // km
+          }
+          if (positions.length === 0) throw new Error('No positions parsed');
+          trajectoryEntity = viewer.entities.add({
+            polyline: {
+              positions: positions,
+              width: 5,
+              material: Cesium.Color.YELLOW.withAlpha(0.8),
+              clampToGround: false
+            }
+          });
+          // Find closest approach point and set lat/lng
+          let minIndex = 0;
+          let minDist = distances[0];
+          for (let i = 1; i < distances.length; i++) {
+            if (distances[i] < minDist) {
+              minDist = distances[i];
+              minIndex = i;
+            }
+          }
+          const minPos = positions[minIndex];
+          const carto = Cesium.Cartographic.fromCartesian(minPos);
+          latR.value = Cesium.Math.toDegrees(carto.latitude);
+          lngR.value = Cesium.Math.toDegrees(carto.longitude);
+          updateDisplays();
+          // Update warning if actual close distance
+          if (minDist < 6371) {
+            warnBox.style.display = 'block';
+            warnText.textContent = `This NEO has a close approach distance of ~${fmtFixed(minDist, 1)} km — potential impactor!`;
+          }
+          viewer.flyTo(trajectoryEntity);
+          viewer.scene.requestRender();
+        } catch (e) {
+          console.error('Trajectory fetch/plot error:', e);
+          warnBox.style.display = 'block';
+          warnText.textContent = 'Failed to fetch or plot asteroid trajectory.';
         }
       }
 
@@ -1160,7 +1253,7 @@
       });
 
       $('fetchNeoBtn').addEventListener('click', fetchNEOs);
-      $('neoSelect').addEventListener('change', (e) => {
+      $('neoSelect').addEventListener('change', async (e) => {
         if (!e.target.value) return;
         const d = JSON.parse(e.target.value);
         const avg_dia = (d.dia_min + d.dia_max) / 2;
@@ -1176,6 +1269,7 @@
         setRangeValue(angleR, 45);
         setRangeValue(defR, 0);
         setRangeValue(fragR, 0);
+        await plotTrajectory(d.designation, d.close_date, d.miss_km);
         simulate(false);
       });
 
