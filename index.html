@@ -421,6 +421,8 @@
         <div class="output"><strong>Seismic magnitude:</strong> <span id="seismicVal">—</span></div>
         <div class="output"><strong>Affected population:</strong> <span id="popAffected">—</span></div>
         <div class="output"><strong>Estimated fatalities:</strong> <span id="fatalitiesVal">—</span></div>
+        <div class="output" id="tsunamiAffectedBox" style="display:none"><strong>Tsunami affected population:</strong> <span id="tsunamiPopAffected">—</span></div>
+        <div class="output" id="tsunamiFatalBox" style="display:none"><strong>Tsunami estimated fatalities:</strong> <span id="tsunamiFatalitiesVal">—</span></div>
         <div class="output" id="tsunamiHeightBox" style="display:none"><strong>Tsunami height (initial):</strong> <span id="tsunamiHeight">—</span> m</div>
         <div class="output" id="tsunamiSpeedBox" style="display:none"><strong>Tsunami speed:</strong> <span id="tsunamiSpeed">—</span> m/s</div>
         <div class="output" id="warningBox" style="display:none;background:linear-gradient(90deg,#3b0832, #6b1b43);color:#fff">⚠️ <span id="warningText"></span></div>
@@ -689,10 +691,13 @@
       const airburstEl = $('airburstVal'), craterEl = $('craterVal'), radiiEl = $('radiiVal');
       const thermalEl = $('thermalVal'), seismicEl = $('seismicVal');
       const popAffectedEl = $('popAffected'), fatalitiesEl = $('fatalitiesVal');
+      const tsunamiPopAffectedEl = $('tsunamiPopAffected'), tsunamiFatalitiesEl = $('tsunamiFatalitiesVal');
       const warnBox = $('warningBox'), warnText = $('warningText');
       const popNote = $('popNote');
       const tsunamiHeightBox = $('tsunamiHeightBox');
       const tsunamiSpeedBox = $('tsunamiSpeedBox');
+      const tsunamiAffectedBox = $('tsunamiAffectedBox');
+      const tsunamiFatalBox = $('tsunamiFatalBox');
       const tsunamiHeightEl = $('tsunamiHeight');
       const tsunamiSpeedEl = $('tsunamiSpeed');
 
@@ -828,41 +833,69 @@
         return { A_severe, A_heavy, A_moderate, A_mild };
       }
 
-      async function estimatePopulationImpact(lat, lng, result, impactType) {
-        if (result.disintegrates || impactType === 'sea') {
-          return { densityData: null, density: 0, perZone: {}, totalAffected: 0, totalFatal: 0 };
+      async function estimatePopulationImpact(lat, lng, result, impactType, tsunami_radii = null) {
+        if (result.disintegrates) {
+          return { densityData: null, density: 0, perZone: {}, totalAffected: 0, totalFatal: 0, tsunamiAffected: 0, tsunamiFatal: 0 };
         }
-        const fallbackDensity = 60;
+        const fallbackDensity = impactType === 'land' ? 60 : 200; // Higher fallback for coastal areas in sea impacts
         const countryCode = await reverseGeocodeCountry(lat, lng);
-        if (!countryCode) {
-          return { densityData: null, density: 0, perZone: {}, totalAffected: 0, totalFatal: 0 };
-        }
         let densityData = null;
         if (countryCode) {
           densityData = await fetchCountryDensity(countryCode).catch(() => null);
         }
         const density = densityData && densityData.density ? densityData.density : fallbackDensity;
-        const areas = ringAreas(result.severe_km, result.heavy_km, result.moderate_km, result.mild_km);
-        const pop_severe = areas.A_severe * density;
-        const pop_heavy = areas.A_heavy * density;
-        const pop_moderate = areas.A_moderate * density;
-        const pop_mild = areas.A_mild * density;
-        const totalAffected = pop_severe + pop_heavy + pop_moderate + pop_mild;
-        const fatal_severe = pop_severe * 0.9;
-        const fatal_heavy = pop_heavy * 0.5;
-        const fatal_moderate = pop_moderate * 0.15;
-        const fatal_mild = pop_mild * 0.02;
-        const totalFatal = fatal_severe + fatal_heavy + fatal_moderate + fatal_mild;
-        return {
-          densityData,
-          density,
-          perZone: {
+        let perZone = {};
+        let totalAffected = 0;
+        let totalFatal = 0;
+        let tsunamiAffected = 0;
+        let tsunamiFatal = 0;
+
+        if (impactType === 'land') {
+          const areas = ringAreas(result.severe_km, result.heavy_km, result.moderate_km, result.mild_km);
+          const pop_severe = areas.A_severe * density;
+          const pop_heavy = areas.A_heavy * density;
+          const pop_moderate = areas.A_moderate * density;
+          const pop_mild = areas.A_mild * density;
+          totalAffected = pop_severe + pop_heavy + pop_moderate + pop_mild;
+          const fatal_severe = pop_severe * 0.9;
+          const fatal_heavy = pop_heavy * 0.5;
+          const fatal_moderate = pop_moderate * 0.15;
+          const fatal_mild = pop_mild * 0.02;
+          totalFatal = fatal_severe + fatal_heavy + fatal_moderate + fatal_mild;
+          perZone = {
             severe: { area_km2: areas.A_severe, pop: pop_severe, fatal: fatal_severe },
             heavy: { area_km2: areas.A_heavy, pop: pop_heavy, fatal: fatal_heavy },
             moderate: { area_km2: areas.A_moderate, pop: pop_moderate, fatal: fatal_moderate },
             mild: { area_km2: areas.A_mild, pop: pop_mild, fatal: fatal_mild }
-          },
-          totalAffected, totalFatal
+          };
+        } else if (impactType === 'sea' && tsunami_radii) {
+          const areas = ringAreas(tsunami_radii.severe_km, tsunami_radii.heavy_km, tsunami_radii.moderate_km, tsunami_radii.mild_km);
+          const pop_severe = areas.A_severe * density;
+          const pop_heavy = areas.A_heavy * density;
+          const pop_moderate = areas.A_moderate * density;
+          const pop_mild = areas.A_mild * density;
+          tsunamiAffected = pop_severe + pop_heavy + pop_moderate + pop_mild;
+          const fatal_severe = pop_severe * 0.9;
+          const fatal_heavy = pop_heavy * 0.5;
+          const fatal_moderate = pop_moderate * 0.15;
+          const fatal_mild = pop_mild * 0.02;
+          tsunamiFatal = fatal_severe + fatal_heavy + fatal_moderate + fatal_mild;
+          perZone = {
+            severe: { area_km2: areas.A_severe, pop: pop_severe, fatal: fatal_severe },
+            heavy: { area_km2: areas.A_heavy, pop: pop_heavy, fatal: fatal_heavy },
+            moderate: { area_km2: areas.A_moderate, pop: pop_moderate, fatal: fatal_moderate },
+            mild: { area_km2: areas.A_mild, pop: pop_mild, fatal: fatal_mild }
+          };
+        }
+
+        return {
+          densityData,
+          density,
+          perZone,
+          totalAffected,
+          totalFatal,
+          tsunamiAffected,
+          tsunamiFatal
         };
       }
 
@@ -881,6 +914,10 @@
         seismicEl.textContent = '—';
         popAffectedEl.textContent = '—';
         fatalitiesEl.textContent = '—';
+        tsunamiPopAffectedEl.textContent = '—';
+        tsunamiFatalitiesEl.textContent = '—';
+        tsunamiAffectedBox.style.display = 'none';
+        tsunamiFatalBox.style.display = 'none';
         tsunamiHeightBox.style.display = 'none';
         tsunamiSpeedBox.style.display = 'none';
         popNote.textContent = 'Population estimated using country-average density. Click the globe to simulate and fetch local country data.';
@@ -977,13 +1014,28 @@
           const totalFatal = Math.round(popEst.totalFatal);
           popAffectedEl.textContent = totalAff.toLocaleString();
           fatalitiesEl.textContent = totalFatal.toLocaleString();
+          if (totalAff < 1) popAffectedEl.textContent = '<1';
+          if (totalFatal < 1) fatalitiesEl.textContent = '<1';
+
+          if (impactType === 'sea') {
+            const tsunamiAff = Math.round(popEst.tsunamiAffected);
+            const tsunamiFatal = Math.round(popEst.tsunamiFatal);
+            tsunamiPopAffectedEl.textContent = tsunamiAff.toLocaleString();
+            tsunamiFatalitiesEl.textContent = tsunamiFatal.toLocaleString();
+            if (tsunamiAff < 1) tsunamiPopAffectedEl.textContent = '<1';
+            if (tsunamiFatal < 1) tsunamiFatalitiesEl.textContent = '<1';
+            tsunamiAffectedBox.style.display = 'block';
+            tsunamiFatalBox.style.display = 'block';
+          } else {
+            tsunamiAffectedBox.style.display = 'none';
+            tsunamiFatalBox.style.display = 'none';
+          }
+
           if (popEst.densityData && popEst.densityData.name) {
             popNote.textContent = `Using country-average density for ${popEst.densityData.name} (${Math.round(popEst.densityData.density)} ppl/km²). This is a coarse estimate.`;
           } else {
             popNote.textContent = `Using fallback global-average density (${Math.round(popEst.density)} ppl/km²). For more accuracy, connect a gridded population dataset.`;
           }
-          if (totalAff < 1) popAffectedEl.textContent = '<1';
-          if (totalFatal < 1) fatalitiesEl.textContent = '<1';
         } catch (e) {
           popNote.textContent = 'Population estimation failed — showing no estimate.';
           console.warn('Population estimation error:', e);
@@ -1137,6 +1189,7 @@
             warnBox.style.display = 'none';
           }
 
+          let tsunami_radii = null;
           if (impactType === 'sea' && !res.disintegrates) {
             const asteroid_radius = res.diameter_m / 2;
             const Rc = kFactor * asteroid_radius * Math.pow(res.ke / 1e15, 1/3);
@@ -1148,6 +1201,17 @@
             tsunamiSpeedEl.textContent = fmtFixed(c, 1);
             tsunamiHeightBox.style.display = 'block';
             tsunamiSpeedBox.style.display = 'block';
+
+            // Tsunami damage zones based on height thresholds
+            const h_severe = 10;
+            const h_heavy = 5;
+            const h_moderate = 2;
+            const h_mild = 0.5;
+            const severe_km = (Rc * Math.pow(eta0 / h_severe, 2)) / 1000;
+            const heavy_km = (Rc * Math.pow(eta0 / h_heavy, 2)) / 1000;
+            const moderate_km = (Rc * Math.pow(eta0 / h_moderate, 2)) / 1000;
+            const mild_km = (Rc * Math.pow(eta0 / h_mild, 2)) / 1000;
+            tsunami_radii = { severe_km, heavy_km, moderate_km, mild_km };
 
             const drawAndAnimateTsunami = () => {
               drawImpact(lat, lng, res, impactType);
@@ -1178,15 +1242,15 @@
 
                 for (let i = 0; i < rings; i++) {
                   const r = crestRadius - i * (Rc * 0.6);
-                  if (r > 0 && r < maxRadiusKm) {
-                    const amp = eta0 / Math.sqrt(Math.max(1, r));
+                  if (r > 0 && r < maxRadiusKm * 1000) {
+                    const amp = eta0 * Math.sqrt(Rc / Math.max(Rc, r));
                     const alpha = Math.min(1, 0.3 + 0.7 * (amp / eta0));
-                    tsunamiEntities[i].ellipse.semiMajorAxis = r * 1000;
-                    tsunamiEntities[i].ellipse.semiMinorAxis = r * 1000;
+                    tsunamiEntities[i].ellipse.semiMajorAxis = r;
+                    tsunamiEntities[i].ellipse.semiMinorAxis = r;
                     tsunamiEntities[i].ellipse.material = Cesium.Color.fromCssColorString('#38bdf8').withAlpha(alpha);
                     tsunamiEntities[i].show = true;
                     anyVisible = true;
-                    console.log(`Ring ${i}: radius=${r.toFixed(2)} km, alpha=${alpha.toFixed(2)}`);
+                    console.log(`Ring ${i}: radius=${(r/1000).toFixed(2)} km, alpha=${alpha.toFixed(2)}`);
                   } else {
                     tsunamiEntities[i].ellipse.semiMajorAxis = 0;
                     tsunamiEntities[i].ellipse.semiMinorAxis = 0;
