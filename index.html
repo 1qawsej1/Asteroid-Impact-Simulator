@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -15,6 +15,7 @@
   <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 
   <style>
+    @import url(../templates/bucket.css);
     :root {
       --bg: #0f1724;
       --card: #0b1220;
@@ -886,10 +887,10 @@
         viewer.scene.requestRender();
       }
 
-      function createEllipse(lng, lat, radius_km, color, opacity, label) {
+      function createEllipse(lng, lat, radius_km, color, opacity, label, height = 0) {
         const radius_m = radius_km * 1000;
         const entity = viewer.entities.add({
-          position: Cesium.Cartesian3.fromDegrees(lng, lat),
+          position: Cesium.Cartesian3.fromDegrees(lng, lat, height),
           ellipse: {
             semiMajorAxis: radius_m,
             semiMinorAxis: radius_m,
@@ -1048,6 +1049,7 @@
           Cesium.Cartesian3.fromDegrees(lng, lat)
         );
         if (!screenPos) {
+          console.warn('Failed to get screen position for fall animation');
           done && done();
           return;
         }
@@ -1147,57 +1149,75 @@
             tsunamiHeightBox.style.display = 'block';
             tsunamiSpeedBox.style.display = 'block';
 
-            if (animate) {
-              animateFallTo(lat, lng, () => drawImpact(lat, lng, res, impactType));
-            } else {
+            const drawAndAnimateTsunami = () => {
               drawImpact(lat, lng, res, impactType);
-            }
+              console.log('Starting tsunami animation at', { lat, lng, Rc, c });
 
-            // Tsunami animation
-            const rings = 6;
-            const tsunamiEntities = [];
-            for (let i = 0; i < rings; i++) {
-              const entity = viewer.entities.add({
-                position: Cesium.Cartesian3.fromDegrees(lng, lat),
-                ellipse: {
-                  semiMajorAxis: 1,
-                  semiMinorAxis: 1,
-                  material: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.3 - i * 0.04),
-                  outline: false
-                }
-              });
-              entity.show = false;
-              tsunamiEntities.push(entity);
-              impactEntities.push(entity);
-            }
-
-            let startTime = performance.now();
-            function animateTsunami() {
-              const elapsed = (performance.now() - startTime) / 1000;
-              const crestRadius = c * elapsed;
+              const rings = 6;
+              const maxRadiusKm = 5000; // Limit to 5000 km to prevent excessive growth
+              const tsunamiEntities = [];
               for (let i = 0; i < rings; i++) {
-                const r = crestRadius - i * (Rc * 0.6);
-                if (r > 0) {
-                  const amp = eta0 / Math.sqrt(Math.max(1, r));
-                  const alpha = Math.min(1, 0.2 + 0.8 * (amp / eta0));
-                  tsunamiEntities[i].ellipse.semiMajorAxis = r * 1000;
-                  tsunamiEntities[i].ellipse.semiMinorAxis = r * 1000;
-                  tsunamiEntities[i].ellipse.material = Cesium.Color.fromCssColorString('#38bdf8').withAlpha(alpha * 0.5);
-                  tsunamiEntities[i].show = true;
+                const entity = viewer.entities.add({
+                  position: Cesium.Cartesian3.fromDegrees(lng, lat, 100), // Slight height offset for visibility
+                  ellipse: {
+                    semiMajorAxis: 0,
+                    semiMinorAxis: 0,
+                    material: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.4 - i * 0.05),
+                    outline: false
+                  }
+                });
+                tsunamiEntities.push(entity);
+                impactEntities.push(entity);
+              }
+
+              let startTime = performance.now();
+              function animateTsunami() {
+                const elapsed = (performance.now() - startTime) / 1000;
+                const crestRadius = c * elapsed;
+                let anyVisible = false;
+
+                for (let i = 0; i < rings; i++) {
+                  const r = crestRadius - i * (Rc * 0.6);
+                  if (r > 0 && r < maxRadiusKm) {
+                    const amp = eta0 / Math.sqrt(Math.max(1, r));
+                    const alpha = Math.min(1, 0.3 + 0.7 * (amp / eta0));
+                    tsunamiEntities[i].ellipse.semiMajorAxis = r * 1000;
+                    tsunamiEntities[i].ellipse.semiMinorAxis = r * 1000;
+                    tsunamiEntities[i].ellipse.material = Cesium.Color.fromCssColorString('#38bdf8').withAlpha(alpha);
+                    tsunamiEntities[i].show = true;
+                    anyVisible = true;
+                    console.log(`Ring ${i}: radius=${r.toFixed(2)} km, alpha=${alpha.toFixed(2)}`);
+                  } else {
+                    tsunamiEntities[i].ellipse.semiMajorAxis = 0;
+                    tsunamiEntities[i].ellipse.semiMinorAxis = 0;
+                    tsunamiEntities[i].show = false;
+                  }
+                }
+
+                viewer.scene.requestRender();
+                if (elapsed < 60 && anyVisible) {
+                  requestAnimationFrame(animateTsunami);
                 } else {
-                  tsunamiEntities[i].show = false;
+                  console.log('Tsunami animation complete, cleaning up');
+                  tsunamiEntities.forEach(entity => viewer.entities.remove(entity));
+                  impactEntities.splice(impactEntities.indexOf(tsunamiEntities[0]), rings);
+                  viewer.scene.requestRender();
                 }
               }
-              viewer.scene.requestRender();
-              if (elapsed < 60) { // Animate for 60 seconds
-                requestAnimationFrame(animateTsunami);
-              }
+              requestAnimationFrame(animateTsunami);
+            };
+
+            if (animate) {
+              console.log('Starting fall animation before tsunami');
+              animateFallTo(lat, lng, drawAndAnimateTsunami);
+            } else {
+              drawAndAnimateTsunami();
             }
-            requestAnimationFrame(animateTsunami);
           } else {
             tsunamiHeightBox.style.display = 'none';
             tsunamiSpeedBox.style.display = 'none';
             if (animate) {
+              console.log('Starting fall animation for non-sea impact');
               animateFallTo(lat, lng, () => drawImpact(lat, lng, res, impactType));
             } else {
               drawImpact(lat, lng, res, impactType);
@@ -1298,4 +1318,3 @@
   </script>
 </body>
 </html>
-
