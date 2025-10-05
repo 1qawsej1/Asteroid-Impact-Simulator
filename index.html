@@ -431,7 +431,7 @@
       // --- CesiumJS Setup ---
       async function initializeViewer() {
         const ionTokenInput = document.getElementById('ionToken');
-        const ionToken = ionTokenInput.value || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjOTJhOWYwZi1mNzc5LTQ0YzktYjVmMi00MDZiYjQ2ZmE5NmUiLCJpZCI6MzQ3MjcwLCJpYXQiOjE3NTk2MTg0MDd9.5lX_hVUnKo70VaAzshOrf4Zj5nqCNmpuVZ48VEDMAVY'; // Replace with your valid Cesium Ion token
+        const ionToken = ionTokenInput.value || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjOTJhOWYwZi1mNzc5LTQ0YzktYjVmMi00MDZiYjQ2ZmE5NmUiLCJpZCI6MzQ3MjcwLCJpYXQiOjE3NTk2MTg0MDd9.5lX_hVUnKo70VaAzshOrf4Zj5nqCNmpuVZ48VEDMAVY';
         if (ionToken) {
           Cesium.Ion.defaultAccessToken = ionToken;
           console.log('Using Cesium Ion Token:', ionToken);
@@ -457,6 +457,7 @@
   selectionIndicator: false,
   sceneMode: Cesium.SceneMode.SCENE3D,
 });
+
 
         // Explicitly set canvas size to match container
         const container = viewer.container;
@@ -492,9 +493,9 @@
         // Load 3D tileset
         if (ionToken) {
           try {
-            console.log('Attempting to load 3D tileset (ID: 3830183)...');
+            console.log('Attempting to load 3D tileset (ID: 3830185)...');
             const tileset = await viewer.scene.primitives.add(
-              await Cesium.Cesium3DTileset.fromIonAssetId(3830183) // Replace with valid asset ID if needed
+              await Cesium.Cesium3DTileset.fromIonAssetId(3830185) // Replace with valid asset ID if needed
             );
             tileset.maximumScreenSpaceError = 16;
             console.log('3D tileset loaded successfully.');
@@ -1118,8 +1119,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
