@@ -369,19 +369,13 @@
             <div class="value" id="lngVal">0.0000°</div>
           </div>
           <div class="row">
-            <div class="label">Deflect (%)</div>
-            <div style="flex:1"><input id="deflectRange" type="range" min="0" max="90" step="1" value="0"></div>
-            <div class="value" id="deflectVal">0%</div>
-          </div>
-          <div class="row">
-            <div class="label">Fragment (%)</div>
-            <div style="flex:1"><input id="fragRange" type="range" min="0" max="90" step="1" value="0"></div>
-            <div class="value" id="fragVal">0%</div>
-          </div>
-          <div class="row">
-            <div class="label">η₀ Fraction</div>
-            <div style="flex:1"><input id="etaFracRange" type="range" min="0.01" max="0.5" step="0.01" value="0.12"></div>
-            <div class="value" id="etaFracVal">0.12</div>
+            <div class="label">Deflection Method</div>
+            <select id="deflectMethod" style="width:100%; padding:6px; border-radius:6px; background:var(--glass); color:inherit; border:1px solid rgba(255,255,255,0.06);">
+              <option value="none">No Deflection</option>
+              <option value="kinetic">Kinetic Impactor</option>
+              <option value="nuclear">Nuclear Deflection</option>
+              <option value="gravity">Gravity Tractor</option>
+            </select>
           </div>
           <div class="buttons" style="margin-top:6px">
             <button id="simulateBtn">Simulate Impact</button>
@@ -406,6 +400,8 @@
         <div class="output"><strong>Blast radii (Severe/Heavy/Mod/Mild):</strong> <span id="radiiVal">—</span> km</div>
         <div class="output"><strong>Thermal radiation radius:</strong> <span id="thermalVal">—</span> km</div>
         <div class="output"><strong>Seismic magnitude:</strong> <span id="seismicVal">—</span></div>
+        <div class="output"><strong>Deflected:</strong> <span id="deflectedVal">—</span>%</div>
+        <div class="output"><strong>Fragmented:</strong> <span id="fragmentedVal">—</span>%</div>
         <div class="output"><strong>Affected population:</strong> <span id="popAffected">—</span></div>
         <div class="output"><strong>Estimated fatalities:</strong> <span id="fatalitiesVal">—</span></div>
         <div class="output" id="warningBox" style="display:none;background:linear-gradient(90deg,#3b0832, #6b1b43);color:#fff">⚠️ <span id="warningText"></span></div>
@@ -629,12 +625,11 @@
       const densityR = $('densityRange'), densityV = $('densityVal');
       const latR = $('latRange'), latV = $('latVal');
       const lngR = $('lngRange'), lngV = $('lngVal');
-      const defR = $('deflectRange'), defV = $('deflectVal');
-      const fragR = $('fragRange'), fragV = $('fragVal');
-      const etaFracR = $('etaFracRange'), etaFracV = $('etaFracVal');
+      const deflectMethod = $('deflectMethod');
       const astDiaEl = $('astDia'), keValEl = $('keVal'), keSciEl = $('keSci');
       const airburstEl = $('airburstVal'), craterEl = $('craterVal'), radiiEl = $('radiiVal');
       const thermalEl = $('thermalVal'), seismicEl = $('seismicVal');
+      const deflectedEl = $('deflectedVal'), fragmentedEl = $('fragmentedVal');
       const popAffectedEl = $('popAffected'), fatalitiesEl = $('fatalitiesVal');
       const warnBox = $('warningBox'), warnText = $('warningText');
       const popNote = $('popNote');
@@ -645,11 +640,8 @@
         densityV.textContent = fmt(Number(densityR.value) || 3000);
         latV.textContent = Number(latR.value || 0).toFixed(4) + '°';
         lngV.textContent = Number(lngR.value || 0).toFixed(4) + '°';
-        defV.textContent = (Number(defR.value) || 0) + '%';
-        fragV.textContent = (Number(fragR.value) || 0) + '%';
-        etaFracV.textContent = Number(etaFracR.value || 0.12).toFixed(2);
       }
-      [massR, speedR, densityR, latR, lngR, defR, fragR, etaFracR].forEach(el => el.addEventListener('input', updateDisplays));
+      [massR, speedR, densityR, latR, lngR].forEach(el => el.addEventListener('input', updateDisplays));
       updateDisplays();
 
       // --- Physics ---
@@ -832,6 +824,8 @@
         radiiEl.textContent = '—';
         thermalEl.textContent = '—';
         seismicEl.textContent = '—';
+        deflectedEl.textContent = '—';
+        fragmentedEl.textContent = '—';
         popAffectedEl.textContent = '—';
         fatalitiesEl.textContent = '—';
         popNote.textContent = 'Population estimated using country-average density. Click the globe to simulate and fetch local country data.';
@@ -1100,8 +1094,6 @@
           let density = Number(densityR.value);
           let lat = Number(latR.value);
           let lng = Number(lngR.value);
-          let def = Number(defR.value);
-          let frag = Number(fragR.value);
 
           // Input validation and defaults
           mass = isFinite(mass) ? mass : 1e9;
@@ -1109,12 +1101,24 @@
           density = isFinite(density) && density > 0 ? density : 3000;
           lat = isFinite(lat) ? Math.max(-90, Math.min(90, lat)) : 0;
           lng = isFinite(lng) ? Math.max(-180, Math.min(180, lng)) : 0;
-          def = isFinite(def) ? def : 0;
-          frag = isFinite(frag) ? frag : 0;
+
+          let deflectPct = 0;
+          let fragPct = 0;
+          const method = deflectMethod.value;
+          if (method === 'kinetic') {
+            deflectPct = 10;
+            fragPct = 5;
+          } else if (method === 'nuclear') {
+            deflectPct = 20;
+            fragPct = 30;
+          } else if (method === 'gravity') {
+            deflectPct = 5;
+            fragPct = 0;
+          }
 
           console.log('Simulation inputs:', { mass, speed, density, lat, lng });
 
-          const res = computeImpact(mass, speed, density, def, frag);
+          const res = computeImpact(mass, speed, density, deflectPct, fragPct);
 
           astDiaEl.textContent = fmtFixed(res.diameter_m, 1);
           keValEl.textContent = fmt(parseFloat(res.ke.toFixed(0)));
@@ -1124,6 +1128,8 @@
           radiiEl.textContent = res.disintegrates ? '0 / 0 / 0 / 0' : `${fmtFixed(res.severe_km, 2)} / ${fmtFixed(res.heavy_km, 2)} / ${fmtFixed(res.moderate_km, 2)} / ${fmtFixed(res.mild_km, 2)}`;
           thermalEl.textContent = res.disintegrates ? '0' : fmtFixed(res.thermal_km, 2);
           seismicEl.textContent = res.disintegrates ? '0' : fmtFixed(res.seismic_mag, 1);
+          deflectedEl.textContent = deflectPct;
+          fragmentedEl.textContent = fragPct;
 
           const megatons = res.ke / 4.184e15;
           if (res.disintegrates) {
@@ -1197,7 +1203,7 @@
       $('simulateBtn').addEventListener('click', () => simulate(false));
       $('resetBtn').addEventListener('click', () => clearImpact());
       $('animateBtn').addEventListener('click', () => simulate(true));
-      [massR, speedR, densityR, latR, lngR, defR, fragR, etaFracR].forEach(el => el.addEventListener('input', () => debouncedSimulate(false)));
+      [massR, speedR, densityR, latR, lngR, deflectMethod].forEach(el => el.addEventListener('input', () => debouncedSimulate(false)));
       simulate(false);
 
       document.addEventListener('keydown', (e) => {
@@ -1219,8 +1225,6 @@
         const clamped_speed = Math.min(Math.max(speed, 5000), 50000);
         setRangeValue(speedR, clamped_speed);
         setRangeValue(densityR, d.density);
-        setRangeValue(defR, 0);
-        setRangeValue(fragR, 0);
         simulate(false);
       });
 
