@@ -223,6 +223,12 @@
     .sw.blue-mild {
       background: linear-gradient(90deg, #bfdbfe, #dbeafe80);
     }
+    .sw.tsunami {
+      background: linear-gradient(90deg, #0ea5e9, #38bdf880);
+    }
+    .sw.seismic {
+      background: linear-gradient(90deg, #dc2626, #ef444480);
+    }
     @media (max-width: 920px) {
       .panel {
         width: 100%;
@@ -408,6 +414,7 @@
         <div class="output"><strong>Blast radii (Severe/Heavy/Mod/Mild):</strong> <span id="radiiVal">—</span> km</div>
         <div class="output"><strong>Thermal radiation radius:</strong> <span id="thermalVal">—</span> km</div>
         <div class="output"><strong>Seismic magnitude:</strong> <span id="seismicVal">—</span></div>
+        <div class="output"><strong>Tsunami radius (est.):</strong> <span id="tsunamiVal">—</span> km</div>
         <div class="output"><strong>Deflected:</strong> <span id="deflectedVal">—</span>%</div>
         <div class="output"><strong>Fragmented:</strong> <span id="fragmentedVal">—</span>%</div>
         <div class="output"><strong>Affected population:</strong> <span id="popAffected">—</span></div>
@@ -424,11 +431,13 @@
             <div class="sw blue-heavy" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Heavy (Sea)</div>
             <div class="sw blue-moderate" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Moderate (Sea)</div>
             <div class="sw blue-mild" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Mild (Sea)</div>
+            <div class="sw tsunami" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Tsunami Wave</div>
+            <div class="sw seismic" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Seismic Wave</div>
           </div>
         </div>
       </div>
       <div class="card" style="text-align:center;font-size:13px;color:var(--muted)">
-        Tip: drag sliders — simulation updates instantly. Click/rotate/scroll to zoom the globe to explore.
+        Tip: drag sliders — simulation updates instantly. Click/rotate/scroll to zoom the globe to explore. Tsunami and earthquake animations appear if impact is over sea or large enough.
       </div>
     </div>
   </div>
@@ -582,6 +591,7 @@
 
       const viewer = await initializeViewer();
       const impactEntities = [];
+      let animationPrimitives = [];
 
       // Resize handler for window changes
       window.addEventListener('resize', () => {
@@ -630,7 +640,7 @@
       const deflectMethod = $('deflectMethod');
       const astDiaEl = $('astDia'), keValEl = $('keVal'), keSciEl = $('keSci');
       const airburstEl = $('airburstVal'), craterEl = $('craterVal'), radiiEl = $('radiiVal');
-      const thermalEl = $('thermalVal'), seismicEl = $('seismicVal');
+      const thermalEl = $('thermalVal'), seismicEl = $('seismicVal'), tsunamiEl = $('tsunamiVal');
       const deflectedEl = $('deflectedVal'), fragmentedEl = $('fragmentedVal');
       const popAffectedEl = $('popAffected'), fatalitiesEl = $('fatalitiesVal');
       const warnBox = $('warningBox'), warnText = $('warningText');
@@ -766,6 +776,14 @@
         );
       }
 
+      function estimateTsunamiRadiusKm(diameter_m, keJ) {
+        if (diameter_m < 100) return 0;
+        // Rough scaling: larger asteroids produce wider tsunamis
+        const baseRadius = diameter_m * 10; // e.g., 200m asteroid ~2000km radius
+        const energyFactor = Math.pow(keJ / 1e18, 0.2); // mild scaling with energy
+        return baseRadius * energyFactor;
+      }
+
       function computeImpact(massKg, speedMs, density, angleDeg, deflectAngleDeg, deflectPct, fragPct) {
         const effectiveSpeed = speedMs * (1 - deflectPct / 100) * Math.cos(Cesium.Math.toRadians(deflectAngleDeg));
         const effectiveMass = massKg * (1 - fragPct / 100);
@@ -777,7 +795,7 @@
           const airburst_km = estimateAirburstAltitude(diameter_m, effectiveSpeed, density, angleDeg);
           return {
             diameter_m, ke, airburst_km, crater_km: 0, severe_km: 0, heavy_km: 0,
-            moderate_km: 0, mild_km: 0, thermal_km: 0, seismic_mag: 0, disintegrates: true
+            moderate_km: 0, mild_km: 0, thermal_km: 0, seismic_mag: 0, tsunami_km: 0, disintegrates: true
           };
         }
 
@@ -788,10 +806,11 @@
         const mild_km = Math.max(moderate_km * 2.2, crater_km * 12.0);
         const thermal_km = estimateThermalRadiusKm(ke, angleDeg);
         const seismic_mag = estimateSeismicMagnitude(ke, angleDeg);
+        const tsunami_km = estimateTsunamiRadiusKm(diameter_m, ke);
 
         return {
           diameter_m, ke, airburst_km: 0, crater_km, severe_km, heavy_km,
-          moderate_km, mild_km, thermal_km, seismic_mag, disintegrates: false
+          moderate_km, mild_km, thermal_km, seismic_mag, tsunami_km, disintegrates: false
         };
       }
 
@@ -872,8 +891,8 @@
           perZone: {
             severe: { area_km2: areas.A_severe, pop: pop_severe, fatal: fatal_severe },
             heavy: { area_km2: areas.A_heavy, pop: pop_heavy, fatal: fatal_heavy },
-            moderate: { area_km2: areas.A_moderate, pop: pop_moderate, fatal: fatal_moderate },
-            mild: { area_km2: areas.A_mild, pop: pop_mild, fatal: fatal_mild }
+            moderate: { area_km2: areas.A_moderate, pop: pop_moderate, fatal: pop_moderate },
+            mild: { area_km2: areas.A_mild, pop: pop_mild, fatal: pop_mild }
           },
           totalAffected,
           totalFatal,
@@ -885,6 +904,8 @@
       function clearImpact() {
         impactEntities.forEach(entity => viewer.entities.remove(entity));
         impactEntities.length = 0;
+        animationPrimitives.forEach(prim => viewer.scene.primitives.remove(prim));
+        animationPrimitives = [];
         warnBox.style.display = 'none';
         astDiaEl.textContent = '—';
         keValEl.textContent = '—';
@@ -894,6 +915,7 @@
         radiiEl.textContent = '—';
         thermalEl.textContent = '—';
         seismicEl.textContent = '—';
+        tsunamiEl.textContent = '—';
         deflectedEl.textContent = '—';
         fragmentedEl.textContent = '—';
         popAffectedEl.textContent = '—';
@@ -941,6 +963,49 @@
         }
       }
 
+      function addExpandingRing(lng, lat, maxRadiusKm, color, durationSec = 20, label = '') {
+        const maxRadius = maxRadiusKm * 1000;
+        const startTime = Cesium.JulianDate.now();
+        const primitive = new Cesium.Primitive({
+          geometryInstances: new Cesium.GeometryInstance({
+            geometry: new Cesium.EllipseGeometry({
+              center: Cesium.Cartesian3.fromDegrees(lng, lat),
+              semiMajorAxis: maxRadius,
+              semiMinorAxis: maxRadius,
+              height: 1000
+            })
+          }),
+          appearance: new Cesium.EllipseGeometryOutlineAppearance({
+            material: Cesium.Material.fromType('Color', {
+              color: Cesium.Color.fromCssColorString(color).withAlpha(0.8)
+            }),
+            translucent: true
+          }),
+          asynchronous: false
+        });
+        primitive.scale = new Cesium.CallbackProperty(() => {
+          const elapsed = Cesium.JulianDate.secondsDifference(Cesium.JulianDate.now(), startTime);
+          const progress = Math.min(elapsed / durationSec, 1);
+          return progress;
+        }, false);
+        primitive.outlineWidth = 4;
+        viewer.scene.primitives.add(primitive);
+        animationPrimitives.push(primitive);
+
+        if (label) {
+          const labelEntity = viewer.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(lng, lat),
+            label: {
+              text: label,
+              font: '14px Roboto',
+              fillColor: Cesium.Color.WHITE,
+              show: false
+            }
+          });
+          impactEntities.push(labelEntity);
+        }
+      }
+
       async function drawImpact(lat, lng, result) {
         if (!isFinite(lat) || !isFinite(lng)) {
           console.warn('Skipping drawImpact due to invalid lat/lng:', lat, lng);
@@ -961,6 +1026,7 @@
           radiiEl.textContent = '0 / 0 / 0 / 0';
           thermalEl.textContent = '0';
           seismicEl.textContent = '0';
+          tsunamiEl.textContent = '0';
           popAffectedEl.textContent = '0';
           fatalitiesEl.textContent = '0';
           popNote.textContent = 'No population affected due to atmospheric disintegration.';
@@ -993,6 +1059,16 @@
         if (heavyEllipse) impactEntities.push(heavyEllipse);
         if (severeEllipse) impactEntities.push(severeEllipse);
 
+        // Add tsunami animation if over sea and significant
+        if (isSea && result.tsunami_km > 50) {
+          addExpandingRing(lng, lat, result.tsunami_km, '#0ea5e9', 30, `Tsunami: ${fmtFixed(result.tsunami_km, 0)} km`);
+        }
+
+        // Add seismic wave animation if large impact
+        if (result.seismic_mag > 6) {
+          addExpandingRing(lng, lat, result.mild_km * 2, '#dc2626', 20, `Seismic Wave`);
+        }
+
         try {
           viewer.camera.flyTo({
             destination: Cesium.Cartesian3.fromDegrees(lng, lat, 10000),
@@ -1018,9 +1094,10 @@
         radiiEl.textContent = `${fmtFixed(result.severe_km, 2)} / ${fmtFixed(result.heavy_km, 2)} / ${fmtFixed(result.moderate_km, 2)} / ${fmtFixed(result.mild_km, 2)}`;
         thermalEl.textContent = fmtFixed(result.thermal_km, 2);
         seismicEl.textContent = fmtFixed(result.seismic_mag, 1);
+        tsunamiEl.textContent = fmtFixed(result.tsunami_km, 0);
 
         popNote.textContent = isSea
-          ? 'Impact over sea — no population affected.'
+          ? 'Impact over sea — no population affected (tsunami may affect coasts).'
           : 'Estimating population — fetching country data...';
         try {
           if (!isSea) {
@@ -1205,6 +1282,7 @@
           radiiEl.textContent = res.disintegrates ? '0 / 0 / 0 / 0' : `${fmtFixed(res.severe_km, 2)} / ${fmtFixed(res.heavy_km, 2)} / ${fmtFixed(res.moderate_km, 2)} / ${fmtFixed(res.mild_km, 2)}`;
           thermalEl.textContent = res.disintegrates ? '0' : fmtFixed(res.thermal_km, 2);
           seismicEl.textContent = res.disintegrates ? '0' : fmtFixed(res.seismic_mag, 1);
+          tsunamiEl.textContent = res.disintegrates ? '0' : fmtFixed(res.tsunami_km, 0);
           deflectedEl.textContent = deflectPct;
           fragmentedEl.textContent = fragPct;
 
