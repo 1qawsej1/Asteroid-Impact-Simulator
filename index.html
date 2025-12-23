@@ -4,13 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Asteroid Impact Simulator — 3D Globe</title>
-
   <!-- Roboto font -->
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-
   <!-- CesiumJS CSS -->
   <link href="https://unpkg.com/cesium@1.120/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-
   <style>
     :root {
       --bg: #0f1724;
@@ -223,12 +220,6 @@
     .sw.blue-mild {
       background: linear-gradient(90deg, #bfdbfe, #dbeafe80);
     }
-    .sw.tsunami {
-      background: linear-gradient(90deg, #0ea5e9, #38bdf880);
-    }
-    .sw.seismic {
-      background: linear-gradient(90deg, #dc2626, #ef444480);
-    }
     @media (max-width: 920px) {
       .panel {
         width: 100%;
@@ -414,7 +405,6 @@
         <div class="output"><strong>Blast radii (Severe/Heavy/Mod/Mild):</strong> <span id="radiiVal">—</span> km</div>
         <div class="output"><strong>Thermal radiation radius:</strong> <span id="thermalVal">—</span> km</div>
         <div class="output"><strong>Seismic magnitude:</strong> <span id="seismicVal">—</span></div>
-        <div class="output"><strong>Tsunami radius (est.):</strong> <span id="tsunamiVal">—</span> km</div>
         <div class="output"><strong>Deflected:</strong> <span id="deflectedVal">—</span>%</div>
         <div class="output"><strong>Fragmented:</strong> <span id="fragmentedVal">—</span>%</div>
         <div class="output"><strong>Affected population:</strong> <span id="popAffected">—</span></div>
@@ -431,17 +421,14 @@
             <div class="sw blue-heavy" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Heavy (Sea)</div>
             <div class="sw blue-moderate" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Moderate (Sea)</div>
             <div class="sw blue-mild" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Mild (Sea)</div>
-            <div class="sw tsunami" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Tsunami Wave</div>
-            <div class="sw seismic" style="margin-left:8px"></div><div style="font-size:13px;color:var(--muted);">Seismic Wave</div>
           </div>
         </div>
       </div>
       <div class="card" style="text-align:center;font-size:13px;color:var(--muted)">
-        Tip: drag sliders — simulation updates instantly. Click/rotate/scroll to zoom the globe to explore. Tsunami and earthquake animations appear if impact is over sea or large enough.
+        Tip: drag sliders — simulation updates instantly. Click/rotate/scroll to zoom the globe to explore.
       </div>
     </div>
   </div>
-
   <!-- CesiumJS with primary and fallback CDN (pinned to stable version) -->
   <script src="https://unpkg.com/cesium@1.120/Build/Cesium/Cesium.js"></script>
   <script>
@@ -450,7 +437,6 @@
       document.write('<script src="https://cdn.jsdelivr.net/npm/cesium@1.120/Build/Cesium/Cesium.js"><\/script>');
     }
   </script>
-
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       if (typeof Cesium === 'undefined') {
@@ -461,7 +447,6 @@
         warnText.textContent = 'Error: CesiumJS library failed to load. Please refresh the page or check your network.';
         return;
       }
-
       // --- Toggle Panel ---
       const toggleBtn = document.getElementById('togglePanel');
       const panel = document.getElementById('panel');
@@ -478,13 +463,11 @@
         }
       }
       toggleBtn.addEventListener('click', togglePanel);
-
       // --- CesiumJS Setup ---
       async function initializeViewer() {
         const ionToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjOTJhOWYwZi1mNzc5LTQ0YzktYjVmMi00MDZiYjQ2ZmE5NmUiLCJpZCI6MzQ3MjcwLCJpYXQiOjE3NTk2MTg0MDd9.5lX_hVUnKo70VaAzshOrf4Zj5nqCNmpuVZ48VEDMAVY';
         Cesium.Ion.defaultAccessToken = ionToken;
         console.log('Using Cesium Ion Token:', ionToken.substring(0, 20) + '...');
-
         const viewer = new Cesium.Viewer('cesiumContainer', {
           baseLayerPicker: false,
           geocoder: false,
@@ -499,7 +482,6 @@
           selectionIndicator: false,
           sceneMode: Cesium.SceneMode.SCENE3D,
         });
-
         // Explicitly set canvas size to match container
         const container = viewer.container;
         const canvas = viewer.scene.canvas;
@@ -509,16 +491,13 @@
         canvas.height = container.clientHeight;
         viewer.resize();
         viewer.scene.requestRender();
-
         // Hide loading overlay
         const loadingOverlay = document.getElementById('loadingOverlay');
         loadingOverlay.style.display = 'none';
-
         // Constrain camera to prevent excessive zoom-out and ensure centering
         viewer.scene.screenSpaceCameraController.maximumZoomDistance = 25000000;
         viewer.scene.screenSpaceCameraController.minimumZoomDistance = 1000;
         viewer.scene.screenSpaceCameraController.enableTilt = false;
-
         // Set initial view to center Earth
         const initialZoomHeight = window.innerWidth <= 920 ? 10000000 : 20000000;
         try {
@@ -533,9 +512,7 @@
         } catch (e) {
           console.error('Failed to set initial camera view:', e);
         }
-
         viewer.scene.globe.enableLighting = true;
-
         // Load 3D tileset (OSM Buildings, ID )
         try {
           console.log('Attempting to load 3D tileset (ID: 380185)...');
@@ -548,7 +525,6 @@
         } catch (e) {
           console.error('Failed to load 3D tileset:', e);
         }
-
         // Dynamic canvas resize handler
         function syncCanvasSize() {
           const rect = container.getBoundingClientRect();
@@ -562,7 +538,6 @@
           requestAnimationFrame(syncCanvasSize);
         }
         requestAnimationFrame(syncCanvasSize);
-
         // Handle zoom events to recenter
         viewer.camera.moveEnd.addEventListener(() => {
           const cartographic = viewer.camera.positionCartographic;
@@ -585,14 +560,10 @@
             }
           }
         });
-
         return viewer;
       }
-
       const viewer = await initializeViewer();
       const impactEntities = [];
-      let animationPrimitives = [];
-
       // Resize handler for window changes
       window.addEventListener('resize', () => {
         const container = viewer.container;
@@ -606,7 +577,6 @@
           viewer.scene.requestRender();
         }
       });
-
       // --- Utilities ---
       const $ = id => document.getElementById(id);
       const fmt = (v) => Number(v).toLocaleString();
@@ -618,7 +588,6 @@
         if (abs < 1e3 || abs > 1e8) return v.toExponential(3);
         return v.toLocaleString();
       };
-
       function debounce(fn, wait=120) {
         let t;
         return function(...args) {
@@ -626,7 +595,6 @@
           t = setTimeout(() => fn.apply(this, args), wait);
         };
       }
-
       // --- DOM Elements ---
       const massR = $('massRange'), massV = $('massVal');
       const speedR = $('speedRange'), speedV = $('speedVal');
@@ -640,12 +608,11 @@
       const deflectMethod = $('deflectMethod');
       const astDiaEl = $('astDia'), keValEl = $('keVal'), keSciEl = $('keSci');
       const airburstEl = $('airburstVal'), craterEl = $('craterVal'), radiiEl = $('radiiVal');
-      const thermalEl = $('thermalVal'), seismicEl = $('seismicVal'), tsunamiEl = $('tsunamiVal');
+      const thermalEl = $('thermalVal'), seismicEl = $('seismicVal');
       const deflectedEl = $('deflectedVal'), fragmentedEl = $('fragmentedVal');
       const popAffectedEl = $('popAffected'), fatalitiesEl = $('fatalitiesVal');
       const warnBox = $('warningBox'), warnText = $('warningText');
       const popNote = $('popNote');
-
       function updateDisplays() {
         massV.textContent = fmt(Number(massR.value) || 1e9);
         speedV.textContent = fmt(Number(speedR.value) || 20000);
@@ -657,7 +624,6 @@
       }
       [massR, speedR, densityR, angleR, deflectAngleR, latR, lngR].forEach(el => el.addEventListener('input', updateDisplays));
       updateDisplays();
-
       // --- Country and State Selection ---
       async function fetchCountries() {
         try {
@@ -677,7 +643,6 @@
           countrySel.innerHTML = '<option value="">Error fetching countries</option>';
         }
       }
-
       async function fetchStates(countryCode) {
         try {
           const res = await fetch(`https://api.geonames.org/children?geonameId=${countryCode}&username=demo&style=full`);
@@ -699,7 +664,6 @@
           stateSel.innerHTML = '<option value="">Error fetching states</option>';
         }
       }
-
       countrySel.addEventListener('change', async (e) => {
         if (!e.target.value) {
           stateSel.innerHTML = '<option value="">Select State</option>';
@@ -712,7 +676,6 @@
         await fetchStates(code);
         debouncedSimulate(false);
       });
-
       stateSel.addEventListener('change', (e) => {
         if (!e.target.value) return;
         const { lat, lng } = JSON.parse(e.target.value);
@@ -721,9 +684,7 @@
         updateDisplays();
         debouncedSimulate(false);
       });
-
       fetchCountries();
-
       // --- Physics ---
       function computeAsteroidDiameter(massKg, density) {
         density = Number(density) || 1000;
@@ -731,12 +692,10 @@
         const radius = Math.cbrt((3 * vol) / (4 * Math.PI));
         return isFinite(radius) ? 2 * radius : 0;
       }
-
       function computeKE(massKg, speedMs, angleDeg, deflectAngleDeg) {
         const effectiveSpeed = speedMs * Math.cos(Cesium.Math.toRadians(deflectAngleDeg));
         return 0.5 * massKg * effectiveSpeed * effectiveSpeed;
       }
-
       function estimateCraterDiameterKm(keJ, angleDeg) {
         const angleFactor = Math.sin(Cesium.Math.toRadians(angleDeg));
         const effectiveKE = keJ * angleFactor;
@@ -744,7 +703,6 @@
         const D_m = C * Math.pow(effectiveKE, 0.25);
         return isFinite(D_m) ? D_m / 1000 : 0;
       }
-
       function estimateAirburstAltitude(diameter_m, speedMs, density, angleDeg) {
         const baseAltitude = 50;
         const sizeFactor = Math.min(25 / diameter_m, 2);
@@ -754,51 +712,37 @@
         const altitude = baseAltitude * (0.5 * sizeFactor + 0.3 * speedFactor + 0.1 * angleFactor + 0.1 * densityFactor);
         return Math.min(Math.max(altitude, 10), 100);
       }
-
       function estimateThermalRadiusKm(keJ, angleDeg) {
         const angleFactor = Math.sin(Cesium.Math.toRadians(angleDeg));
         const C_thermal = 0.05;
         const R_m = C_thermal * Math.pow(keJ * angleFactor, 1/3);
         return isFinite(R_m) ? R_m / 1000 : 0;
       }
-
       function estimateSeismicMagnitude(keJ, angleDeg) {
         const angleFactor = Math.sin(Cesium.Math.toRadians(angleDeg));
         const logE = Math.log10(keJ * angleFactor);
         const M = (logE - 4.8) / 1.5;
         return Math.max(0, Math.min(M, 12));
       }
-
       function checkAtmosphericDisintegration(diameter_m, speedMs, density, angleDeg) {
         return (
           diameter_m < 25 &&
           (angleDeg > 60 || speedMs < 12000 || density < 2000)
         );
       }
-
-      function estimateTsunamiRadiusKm(diameter_m, keJ) {
-        if (diameter_m < 100) return 0;
-        // Rough scaling: larger asteroids produce wider tsunamis
-        const baseRadius = diameter_m * 10; // e.g., 200m asteroid ~2000km radius
-        const energyFactor = Math.pow(keJ / 1e18, 0.2); // mild scaling with energy
-        return baseRadius * energyFactor;
-      }
-
       function computeImpact(massKg, speedMs, density, angleDeg, deflectAngleDeg, deflectPct, fragPct) {
         const effectiveSpeed = speedMs * (1 - deflectPct / 100) * Math.cos(Cesium.Math.toRadians(deflectAngleDeg));
         const effectiveMass = massKg * (1 - fragPct / 100);
         const diameter_m = computeAsteroidDiameter(effectiveMass, density);
         const ke = computeKE(effectiveMass, speedMs, angleDeg, deflectAngleDeg);
         const disintegrates = checkAtmosphericDisintegration(diameter_m, effectiveSpeed, density, angleDeg);
-
         if (disintegrates) {
           const airburst_km = estimateAirburstAltitude(diameter_m, effectiveSpeed, density, angleDeg);
           return {
             diameter_m, ke, airburst_km, crater_km: 0, severe_km: 0, heavy_km: 0,
-            moderate_km: 0, mild_km: 0, thermal_km: 0, seismic_mag: 0, tsunami_km: 0, disintegrates: true
+            moderate_km: 0, mild_km: 0, thermal_km: 0, seismic_mag: 0, disintegrates: true
           };
         }
-
         const crater_km = estimateCraterDiameterKm(ke, angleDeg);
         const severe_km = Math.max(0.5, crater_km * 0.6);
         const heavy_km = Math.max(severe_km * 1.8, crater_km * 2.0);
@@ -806,14 +750,11 @@
         const mild_km = Math.max(moderate_km * 2.2, crater_km * 12.0);
         const thermal_km = estimateThermalRadiusKm(ke, angleDeg);
         const seismic_mag = estimateSeismicMagnitude(ke, angleDeg);
-        const tsunami_km = estimateTsunamiRadiusKm(diameter_m, ke);
-
         return {
           diameter_m, ke, airburst_km: 0, crater_km, severe_km, heavy_km,
-          moderate_km, mild_km, thermal_km, seismic_mag, tsunami_km, disintegrates: false
+          moderate_km, mild_km, thermal_km, seismic_mag, disintegrates: false
         };
       }
-
       // --- Population Estimation ---
       async function reverseGeocodeCountry(lat, lng) {
         try {
@@ -834,7 +775,6 @@
           return { countryCode: null, isSea: false };
         }
       }
-
       async function fetchCountryDensity(alpha2) {
         try {
           const url = `https://restcountries.com/v3.1/alpha/${alpha2}`;
@@ -850,7 +790,6 @@
           return null;
         }
       }
-
       function ringAreas(severe_km, heavy_km, moderate_km, mild_km) {
         const area = (r) => Math.PI * r * r;
         const A_severe = area(severe_km);
@@ -859,7 +798,6 @@
         const A_mild = Math.max(0, area(mild_km) - area(moderate_km));
         return { A_severe, A_heavy, A_moderate, A_mild };
       }
-
       async function estimatePopulationImpact(lat, lng, result) {
         if (result.disintegrates) {
           return { densityData: null, density: 0, perZone: {}, totalAffected: 0, totalFatal: 0, isSea: false };
@@ -891,21 +829,18 @@
           perZone: {
             severe: { area_km2: areas.A_severe, pop: pop_severe, fatal: fatal_severe },
             heavy: { area_km2: areas.A_heavy, pop: pop_heavy, fatal: fatal_heavy },
-            moderate: { area_km2: areas.A_moderate, pop: pop_moderate, fatal: pop_moderate },
-            mild: { area_km2: areas.A_mild, pop: pop_mild, fatal: pop_mild }
+            moderate: { area_km2: areas.A_moderate, pop: pop_moderate, fatal: fatal_moderate },
+            mild: { area_km2: areas.A_mild, pop: pop_mild, fatal: fatal_mild }
           },
           totalAffected,
           totalFatal,
           isSea
         };
       }
-
       // --- Interaction: Draw on Globe ---
       function clearImpact() {
         impactEntities.forEach(entity => viewer.entities.remove(entity));
         impactEntities.length = 0;
-        animationPrimitives.forEach(prim => viewer.scene.primitives.remove(prim));
-        animationPrimitives = [];
         warnBox.style.display = 'none';
         astDiaEl.textContent = '—';
         keValEl.textContent = '—';
@@ -915,7 +850,6 @@
         radiiEl.textContent = '—';
         thermalEl.textContent = '—';
         seismicEl.textContent = '—';
-        tsunamiEl.textContent = '—';
         deflectedEl.textContent = '—';
         fragmentedEl.textContent = '—';
         popAffectedEl.textContent = '—';
@@ -923,7 +857,6 @@
         popNote.textContent = 'Population estimated using country-average density. Click the globe to simulate and fetch local country data.';
         viewer.scene.requestRender();
       }
-
       function createEllipse(lng, lat, radius_km, label, isSea, height = 0) {
         if (!isFinite(lng) || !isFinite(lat) || !isFinite(height) || radius_km <= 0) {
           console.warn('Skipping ellipse creation due to invalid coordinates:', { lng, lat, height, radius_km });
@@ -962,47 +895,87 @@
           return null;
         }
       }
+      // --- New: Earthquake and Tsunami Animations ---
+      let currentImpactPosition = null;
+      let currentResult = null;
+      let currentIsSea = false;
 
-      function addExpandingRing(lng, lat, maxRadiusKm, color, durationSec = 20, label = '') {
-        const maxRadius = maxRadiusKm * 1000;
-        const startTime = Cesium.JulianDate.now();
-        const primitive = new Cesium.Primitive({
-          geometryInstances: new Cesium.GeometryInstance({
-            geometry: new Cesium.EllipseGeometry({
-              center: Cesium.Cartesian3.fromDegrees(lng, lat),
-              semiMajorAxis: maxRadius,
-              semiMinorAxis: maxRadius,
-              height: 1000
-            })
-          }),
-          appearance: new Cesium.EllipseGeometryOutlineAppearance({
-            material: Cesium.Material.fromType('Color', {
-              color: Cesium.Color.fromCssColorString(color).withAlpha(0.8)
-            }),
-            translucent: true
-          }),
-          asynchronous: false
-        });
-        primitive.scale = new Cesium.CallbackProperty(() => {
-          const elapsed = Cesium.JulianDate.secondsDifference(Cesium.JulianDate.now(), startTime);
-          const progress = Math.min(elapsed / durationSec, 1);
-          return progress;
-        }, false);
-        primitive.outlineWidth = 4;
-        viewer.scene.primitives.add(primitive);
-        animationPrimitives.push(primitive);
+      function cameraShake(duration = 3000, magnitude = 1.0) {
+        const startTime = performance.now();
+        const originalPosition = viewer.camera.position.clone();
+        const originalDirection = viewer.camera.direction.clone();
+        const originalUp = viewer.camera.up.clone();
 
-        if (label) {
-          const labelEntity = viewer.entities.add({
-            position: Cesium.Cartesian3.fromDegrees(lng, lat),
-            label: {
-              text: label,
-              font: '14px Roboto',
-              fillColor: Cesium.Color.WHITE,
-              show: false
+        function shake() {
+          const elapsed = performance.now() - startTime;
+          if (elapsed > duration) {
+            viewer.camera.setView({
+              destination: originalPosition,
+              orientation: {
+                direction: originalDirection,
+                up: originalUp
+              }
+            });
+            return;
+          }
+          const intensity = magnitude * (1 - elapsed / duration);
+          const offsetX = (Math.random() - 0.5) * intensity * 1000;
+          const offsetY = (Math.random() - 0.5) * intensity * 1000;
+          const offsetZ = (Math.random() - 0.5) * intensity * 500;
+
+          viewer.camera.position.set(originalPosition.x + offsetX, originalPosition.y + offsetY, originalPosition.z + offsetZ);
+
+          requestAnimationFrame(shake);
+        }
+        shake();
+      }
+
+      function tsunamiWaveAnimation(lat, lng, maxRadiusKm = 500, duration = 10000) {
+        const startTime = performance.now();
+        const center = Cesium.Cartesian3.fromDegrees(lng, lat);
+        let waveEntity = null;
+
+        function updateWave() {
+          const elapsed = performance.now() - startTime;
+          if (elapsed > duration) {
+            if (waveEntity) viewer.entities.remove(waveEntity);
+            return;
+          }
+          const progress = elapsed / duration;
+          const currentRadius = progress * maxRadiusKm * 1000; // in meters
+          const opacity = 0.4 * (1 - progress);
+
+          if (waveEntity) viewer.entities.remove(waveEntity);
+
+          waveEntity = viewer.entities.add({
+            position: center,
+            ellipse: {
+              semiMajorAxis: currentRadius,
+              semiMinorAxis: currentRadius,
+              height: 0,
+              material: new Cesium.Color(0.2, 0.6, 1.0, opacity),
+              outline: true,
+              outlineColor: Cesium.Color.CYAN.withAlpha(opacity * 1.5),
+              outlineWidth: 4
             }
           });
-          impactEntities.push(labelEntity);
+
+          requestAnimationFrame(updateWave);
+        }
+        updateWave();
+      }
+
+      function triggerPostImpactAnimations(result, isSea, lat, lng) {
+        // Earthquake camera shake (always, scaled by magnitude)
+        if (!result.disintegrates && result.seismic_mag > 4) {
+          const shakeMag = Math.min(result.seismic_mag / 10, 2.0);
+          cameraShake(4000 + result.seismic_mag * 500, shakeMag);
+        }
+
+        // Tsunami wave if over sea and significant energy
+        if (isSea && !result.disintegrates && result.crater_km > 10) {
+          const tsunamiRadius = Math.max(result.mild_km * 5, 200); // arbitrary scaling
+          tsunamiWaveAnimation(lat, lng, tsunamiRadius, 15000);
         }
       }
 
@@ -1014,6 +987,9 @@
         clearImpact();
         const popEst = await estimatePopulationImpact(lat, lng, result);
         const isSea = popEst.isSea;
+        currentImpactPosition = {lat, lng};
+        currentResult = result;
+        currentIsSea = isSea;
 
         if (result.disintegrates) {
           warnBox.style.display = 'block';
@@ -1026,14 +1002,12 @@
           radiiEl.textContent = '0 / 0 / 0 / 0';
           thermalEl.textContent = '0';
           seismicEl.textContent = '0';
-          tsunamiEl.textContent = '0';
           popAffectedEl.textContent = '0';
           fatalitiesEl.textContent = '0';
           popNote.textContent = 'No population affected due to atmospheric disintegration.';
           viewer.scene.requestRender();
           return;
         }
-
         try {
           const height = 1000;
           const marker = viewer.entities.add({
@@ -1049,7 +1023,6 @@
         } catch (e) {
           console.warn('Failed to add marker:', e);
         }
-
         const mildEllipse = createEllipse(lng, lat, result.mild_km, 'Mild', isSea);
         const moderateEllipse = createEllipse(lng, lat, result.moderate_km, 'Moderate', isSea);
         const heavyEllipse = createEllipse(lng, lat, result.heavy_km, 'Heavy', isSea);
@@ -1058,17 +1031,6 @@
         if (moderateEllipse) impactEntities.push(moderateEllipse);
         if (heavyEllipse) impactEntities.push(heavyEllipse);
         if (severeEllipse) impactEntities.push(severeEllipse);
-
-        // Add tsunami animation if over sea and significant
-        if (isSea && result.tsunami_km > 50) {
-          addExpandingRing(lng, lat, result.tsunami_km, '#0ea5e9', 30, `Tsunami: ${fmtFixed(result.tsunami_km, 0)} km`);
-        }
-
-        // Add seismic wave animation if large impact
-        if (result.seismic_mag > 6) {
-          addExpandingRing(lng, lat, result.mild_km * 2, '#dc2626', 20, `Seismic Wave`);
-        }
-
         try {
           viewer.camera.flyTo({
             destination: Cesium.Cartesian3.fromDegrees(lng, lat, 10000),
@@ -1080,12 +1042,14 @@
             duration: 1,
             complete: () => {
               viewer.scene.requestRender();
+              // Trigger animations after flyTo completes
+              triggerPostImpactAnimations(result, isSea, lat, lng);
             }
           });
         } catch (e) {
           console.warn('Camera flyTo failed:', e);
+          triggerPostImpactAnimations(result, isSea, lat, lng);
         }
-
         astDiaEl.textContent = fmtFixed(result.diameter_m, 1);
         keValEl.textContent = fmt(parseFloat(result.ke.toFixed(0)));
         keSciEl.textContent = fmtSci(result.ke);
@@ -1094,10 +1058,8 @@
         radiiEl.textContent = `${fmtFixed(result.severe_km, 2)} / ${fmtFixed(result.heavy_km, 2)} / ${fmtFixed(result.moderate_km, 2)} / ${fmtFixed(result.mild_km, 2)}`;
         thermalEl.textContent = fmtFixed(result.thermal_km, 2);
         seismicEl.textContent = fmtFixed(result.seismic_mag, 1);
-        tsunamiEl.textContent = fmtFixed(result.tsunami_km, 0);
-
         popNote.textContent = isSea
-          ? 'Impact over sea — no population affected (tsunami may affect coasts).'
+          ? 'Impact over sea — no population affected.'
           : 'Estimating population — fetching country data...';
         try {
           if (!isSea) {
@@ -1124,7 +1086,6 @@
         }
         viewer.scene.requestRender();
       }
-
       // --- Raycasting for Clicking Globe ---
       const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
       handler.setInputAction((click) => {
@@ -1146,7 +1107,6 @@
           }
         }
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
       // --- Tooltip Handling ---
       let tooltipDiv = null;
       function showTooltip(event, content) {
@@ -1166,13 +1126,11 @@
         tooltipDiv.style.top = `${event.position.y + 10}px`;
         tooltipDiv.style.display = 'block';
       }
-
       function hideTooltip() {
         if (tooltipDiv) {
           tooltipDiv.style.display = 'none';
         }
       }
-
       handler.setInputAction((movement) => {
         const picked = viewer.scene.pick(movement.endPosition);
         if (picked && picked.id && picked.id.label) {
@@ -1181,7 +1139,6 @@
           hideTooltip();
         }
       }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-
       // --- Animation: Falling Emoji ---
       const fallWrap = $('fallWrap');
       function animateFallTo(lat, lng, done) {
@@ -1199,7 +1156,6 @@
           done && done();
           return;
         }
-
         const el = document.createElement('div');
         el.className = 'fall';
         el.innerHTML = '☄️';
@@ -1208,11 +1164,9 @@
         el.style.opacity = '1';
         el.style.transition = 'top 900ms cubic-bezier(.2,.9,.2,1), opacity 200ms linear';
         fallWrap.appendChild(el);
-
         void el.offsetWidth;
         const clampY = Math.min(Math.max(screenPos.y, 20), fallWrap.clientHeight - 20);
         el.style.top = `${clampY}px`;
-
         const onEnd = (ev) => {
           if (ev.propertyName === 'top') {
             el.removeEventListener('transitionend', onEnd);
@@ -1225,7 +1179,6 @@
           }
         };
         el.addEventListener('transitionend', onEnd);
-
         setTimeout(() => {
           if (document.body.contains(el)) {
             el.remove();
@@ -1233,10 +1186,8 @@
           }
         }, 1600);
       }
-
       // --- Simulation ---
       const debouncedSimulate = debounce((animate = false) => simulate(animate), 80);
-
       function simulate(animate = false) {
         try {
           let mass = Number(massR.value);
@@ -1246,7 +1197,6 @@
           let deflectAngle = Number(deflectAngleR.value);
           let lat = Number(latR.value);
           let lng = Number(lngR.value);
-
           // Input validation and defaults
           mass = isFinite(mass) ? mass : 1e9;
           speed = isFinite(speed) ? speed : 20000;
@@ -1255,7 +1205,6 @@
           deflectAngle = isFinite(deflectAngle) ? Math.max(0, Math.min(30, deflectAngle)) : 0;
           lat = isFinite(lat) ? Math.max(-90, Math.min(90, lat)) : 0;
           lng = isFinite(lng) ? Math.max(-180, Math.min(180, lng)) : 0;
-
           let deflectPct = 0;
           let fragPct = 0;
           const method = deflectMethod.value;
@@ -1269,11 +1218,8 @@
             deflectPct = 5;
             fragPct = 0;
           }
-
           console.log('Simulation inputs:', { mass, speed, density, angle, deflectAngle, lat, lng });
-
           const res = computeImpact(mass, speed, density, angle, deflectAngle, deflectPct, fragPct);
-
           astDiaEl.textContent = fmtFixed(res.diameter_m, 1);
           keValEl.textContent = fmt(parseFloat(res.ke.toFixed(0)));
           keSciEl.textContent = fmtSci(res.ke);
@@ -1282,10 +1228,8 @@
           radiiEl.textContent = res.disintegrates ? '0 / 0 / 0 / 0' : `${fmtFixed(res.severe_km, 2)} / ${fmtFixed(res.heavy_km, 2)} / ${fmtFixed(res.moderate_km, 2)} / ${fmtFixed(res.mild_km, 2)}`;
           thermalEl.textContent = res.disintegrates ? '0' : fmtFixed(res.thermal_km, 2);
           seismicEl.textContent = res.disintegrates ? '0' : fmtFixed(res.seismic_mag, 1);
-          tsunamiEl.textContent = res.disintegrates ? '0' : fmtFixed(res.tsunami_km, 0);
           deflectedEl.textContent = deflectPct;
           fragmentedEl.textContent = fragPct;
-
           const megatons = res.ke / 4.184e15;
           if (res.disintegrates) {
             warnBox.style.display = 'block';
@@ -1299,7 +1243,6 @@
           } else {
             warnBox.style.display = 'none';
           }
-
           if (animate) {
             console.log('Starting fall animation');
             animateFallTo(lat, lng, () => drawImpact(lat, lng, res));
@@ -1312,10 +1255,8 @@
           warnText.textContent = 'Error during simulation — please check input values.';
         }
       }
-
       // --- NASA NEO API Integration ---
       const apiKey = '4gkxMlrvfAdWiMnr4vCVL7zwizhtX77QCPALiQrd';
-
       async function fetchNEOs() {
         const today = new Date().toISOString().split('T')[0];
         const url = `https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&api_key=${apiKey}`;
@@ -1353,7 +1294,6 @@
           $('neoSelect').innerHTML = '<option value="">Error fetching NEOs</option>';
         }
       }
-
       // --- Events ---
       $('simulateBtn').addEventListener('click', () => simulate(false));
       $('resetBtn').addEventListener('click', () => clearImpact());
@@ -1361,12 +1301,10 @@
       [massR, speedR, densityR, angleR, deflectAngleR, latR, lngR].forEach(el => el.addEventListener('input', () => debouncedSimulate(false)));
       deflectMethod.addEventListener('change', () => debouncedSimulate(false));
       simulate(false);
-
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') simulate(false);
         if (e.key === 'r') clearImpact();
       });
-
       $('fetchNeoBtn').addEventListener('click', fetchNEOs);
       $('neoSelect').addEventListener('change', (e) => {
         if (!e.target.value) return;
@@ -1383,7 +1321,6 @@
         setRangeValue(densityR, d.density);
         simulate(false);
       });
-
       function setRangeValue(range, v) {
         range.value = v;
         updateDisplays();
